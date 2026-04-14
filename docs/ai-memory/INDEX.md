@@ -21,4 +21,4 @@ It should describe the current truth of the repo. Historical context lives in Gi
 
 ## Features
 
-- `features/project-bootstrap.md` - initial stack, scene architecture, build constraints, and bootstrap entry points
+- `features/project-setup.md` - Phaser/Vite/TypeScript scaffold, entry points, scene startup flow, and build constraints
