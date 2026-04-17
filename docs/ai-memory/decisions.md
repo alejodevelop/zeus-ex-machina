@@ -21,13 +21,19 @@ Cross-feature decisions and constraints that future work should preserve.
 ## Phaser project structure
 
 - `src/main.ts` is the single browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
-- Scene order is defined centrally in `src/game/config.ts`: `BootScene` -> `PreloadScene` -> `MenuScene` -> `GameScene`, with `UiScene` launched alongside gameplay.
-- Keep scene ids in `src/game/scenes/scene-keys.ts`, asset keys in `src/game/assets.ts`, and global event names in `src/game/events.ts` to avoid string drift.
+- Scene order is defined centrally in `src/game/config.ts`: `BootScene` -> `PreloadScene` -> `MenuScene` -> `GameScene`.
+- `BootScene` owns runtime-generated placeholder textures and `PreloadScene` is the hook for future external asset loading.
+- Keep scene ids in `src/game/scenes/scene-keys.ts` and scaffold asset keys in `src/game/assets.ts` to avoid string drift.
+
+## Frame sizing
+
+- The game frame stays at `960x540` in `src/game/config.ts` and the shell keeps a matching `16 / 9` aspect ratio in `src/styles.css`.
+- If the project changes aspect ratio later, update both files together.
 
 ## Testing boundary
 
 - `vitest.config.ts` uses the `node` environment and includes `src/**/*.test.ts` only.
-- Put deterministic, non-Phaser-heavy logic in `src/game/systems/` or `src/game/utils/` so it can be unit tested without a browser runtime.
+- Put deterministic, non-Phaser-heavy logic in plain modules under `src/game/` or `src/game/utils/` so it can be unit tested without a browser runtime.
 
 ## Deployment target
 

@@ -3,5 +3,4 @@ export const SceneKey = {
   Game: 'game',
   Menu: 'menu',
   Preload: 'preload',
-  Ui: 'ui',
 } as const;

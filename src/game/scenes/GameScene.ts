@@ -1,333 +1,157 @@
 import Phaser from 'phaser';
 
-import { MachineCore } from '../entities/MachineCore';
-import { type MovementState, Player } from '../entities/Player';
-import { GAME_EVENTS } from '../events';
-import { SessionState } from '../systems/SessionState';
-import { pickSpawnPoint } from '../systems/spawn-point';
+import { ASSET_KEYS } from '../assets';
 import { SceneKey } from './scene-keys';
 
-const FLOOR_MARGIN = 70;
-const TARGET_SCORE = 10;
-const TIME_LIMIT_SECONDS = 35;
-
-interface WasdKeys {
-  down: Phaser.Input.Keyboard.Key;
-  left: Phaser.Input.Keyboard.Key;
-  right: Phaser.Input.Keyboard.Key;
-  up: Phaser.Input.Keyboard.Key;
-}
-
 export class GameScene extends Phaser.Scene {
-  private core!: MachineCore;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keyboard!: Phaser.Input.Keyboard.KeyboardPlugin;
-  private player!: Player;
-  private resultOverlay?: Phaser.GameObjects.Container;
-  private runLocked = false;
-  private session!: SessionState;
-  private tickEvent?: Phaser.Time.TimerEvent;
-  private wasd!: WasdKeys;
+  private leaving = false;
 
   constructor() {
     super(SceneKey.Game);
   }
 
   public create(): void {
-    const bounds = this.getPlayBounds();
+    const { width, height } = this.scale;
+    const accent = this.add.image(width - 136, 108, ASSET_KEYS.emblem).setAlpha(0.12).setScale(0.84);
+    const backdrop = this.add.graphics();
 
-    this.cameras.main.fadeIn(220, 0, 0, 0);
-    this.physics.world.setBounds(bounds.x, bounds.y, bounds.width, bounds.height);
-    this.drawFactoryFloor(bounds);
+    this.cameras.main.fadeIn(260, 0, 0, 0);
 
-    this.session = new SessionState({
-      targetScore: TARGET_SCORE,
-      timeLimitSeconds: TIME_LIMIT_SECONDS,
-    });
-    this.session.start();
+    backdrop.fillStyle(0xfffaf4, 0.78);
+    backdrop.fillRoundedRect(48, 42, width - 96, height - 84, 28);
+    backdrop.lineStyle(2, 0x42586f, 0.28);
+    backdrop.strokeRoundedRect(48, 42, width - 96, height - 84, 28);
+    backdrop.lineStyle(1, 0x42586f, 0.12);
 
-    this.player = new Player(this, bounds.centerX, bounds.centerY);
-    this.player.setCollideWorldBounds(true);
-
-    this.core = new MachineCore(this, bounds.centerX + 96, bounds.centerY);
-    this.relocateCore();
-
-    this.physics.add.overlap(this.player, this.core, () => {
-      this.collectCore();
-    });
-
-    if (!this.input.keyboard) {
-      throw new Error('Keyboard input is unavailable in GameScene.');
+    for (let x = 96; x <= width - 96; x += 56) {
+      backdrop.lineBetween(x, 84, x, height - 84);
     }
 
-    this.keyboard = this.input.keyboard;
-    this.cursors = this.keyboard.createCursorKeys();
-    this.wasd = this.keyboard.addKeys({
-      down: Phaser.Input.Keyboard.KeyCodes.S,
-      left: Phaser.Input.Keyboard.KeyCodes.A,
-      right: Phaser.Input.Keyboard.KeyCodes.D,
-      up: Phaser.Input.Keyboard.KeyCodes.W,
-    }) as WasdKeys;
-
-    this.tickEvent = this.time.addEvent({
-      callback: this.handleTick,
-      callbackScope: this,
-      delay: 1000,
-      loop: true,
+    this.tweens.add({
+      angle: -360,
+      duration: 24000,
+      ease: 'Linear',
+      repeat: -1,
+      targets: accent,
     });
 
-    this.scene.launch(SceneKey.Ui, { snapshot: this.session.snapshot });
-    this.scene.bringToTop(SceneKey.Ui);
-    this.publishSession();
-
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
-  }
-
-  public update(): void {
-    if (this.runLocked) {
-      return;
-    }
-
-    this.player.applyMovement(this.readMovement());
-  }
-
-  private collectCore(): void {
-    if (this.runLocked) {
-      return;
-    }
-
-    this.session.addScore();
-    this.publishSession();
-    this.spawnCollectionBurst(this.core.getCenter());
-
-    this.game.events.emit(GAME_EVENTS.coreCollected, this.session.snapshot);
-
-    if (this.session.isTargetReached) {
-      this.finishRun('success');
-      return;
-    }
-
-    this.relocateCore();
-  }
-
-  private drawFactoryFloor(bounds: Phaser.Geom.Rectangle): void {
-    const graphics = this.add.graphics();
-
-    graphics.fillGradientStyle(0x081421, 0x081421, 0x03070d, 0x03070d, 1);
-    graphics.fillRect(0, 0, this.scale.width, this.scale.height);
-
-    graphics.lineStyle(1, 0x1d3550, 0.65);
-
-    for (let x = bounds.left; x <= bounds.right; x += 48) {
-      graphics.lineBetween(x, bounds.top, x, bounds.bottom);
-    }
-
-    for (let y = bounds.top; y <= bounds.bottom; y += 48) {
-      graphics.lineBetween(bounds.left, y, bounds.right, y);
-    }
-
-    graphics.lineStyle(3, 0x2f4b67, 1);
-    graphics.strokeRoundedRect(bounds.x, bounds.y, bounds.width, bounds.height, 18);
-
-    const stations = [
-      new Phaser.Math.Vector2(bounds.left + 54, bounds.top + 52),
-      new Phaser.Math.Vector2(bounds.right - 54, bounds.top + 52),
-      new Phaser.Math.Vector2(bounds.left + 54, bounds.bottom - 52),
-      new Phaser.Math.Vector2(bounds.right - 54, bounds.bottom - 52),
-    ];
-
-    stations.forEach((point, index) => {
-      this.add.rectangle(point.x, point.y, 94, 64, 0x0b1522, 0.96).setStrokeStyle(2, 0x365677, 1);
-      this.add.image(point.x - 24, point.y, 'signal-node').setAlpha(0.8 + index * 0.05);
-      this.add.rectangle(point.x + 12, point.y, 28, 10, 0x1b3047, 0.9);
-      this.add.rectangle(point.x + 32, point.y, 10, 10, 0xf59e0b, 0.92);
-    });
-  }
-
-  private finishRun(outcome: 'success' | 'timeout'): void {
-    if (this.runLocked) {
-      return;
-    }
-
-    this.runLocked = true;
-    this.tickEvent?.remove(false);
-    this.player.freeze();
-
-    if (outcome === 'success') {
-      this.session.markSuccess();
-    } else {
-      this.session.markTimeout();
-    }
-
-    this.publishSession();
-    this.showResultCard(outcome);
-  }
-
-  private getPlayBounds(): Phaser.Geom.Rectangle {
-    return new Phaser.Geom.Rectangle(
-      FLOOR_MARGIN,
-      FLOOR_MARGIN,
-      this.scale.width - FLOOR_MARGIN * 2,
-      this.scale.height - FLOOR_MARGIN * 2,
-    );
-  }
-
-  private handleShutdown(): void {
-    this.resultOverlay?.destroy();
-
-    if (this.scene.isActive(SceneKey.Ui)) {
-      this.scene.stop(SceneKey.Ui);
-    }
-  }
-
-  private handleTick(): void {
-    this.session.tick();
-    this.publishSession();
-
-    if (!this.session.hasTimeRemaining) {
-      this.finishRun('timeout');
-    }
-  }
-
-  private publishSession(): void {
-    this.game.events.emit(GAME_EVENTS.sessionChanged, this.session.snapshot);
-  }
-
-  private readMovement(): MovementState {
-    return {
-      down: this.cursors.down.isDown || this.wasd.down.isDown,
-      left: this.cursors.left.isDown || this.wasd.left.isDown,
-      right: this.cursors.right.isDown || this.wasd.right.isDown,
-      up: this.cursors.up.isDown || this.wasd.up.isDown,
-    };
-  }
-
-  private relocateCore(): void {
-    const point = pickSpawnPoint(this.getPlayBounds(), 32, this.player.getCenter());
-    this.core.relocate(point);
-  }
-
-  private showResultCard(outcome: 'success' | 'timeout'): void {
-    const { height, width } = this.scale;
-    const title = outcome === 'success' ? 'Calibration complete' : 'Shift window closed';
-    const body =
-      outcome === 'success'
-        ? `You secured ${this.session.snapshot.score} cores with ${this.session.snapshot.remainingSeconds}s left.`
-        : `You gathered ${this.session.snapshot.score} of ${this.session.snapshot.targetScore} cores before time ran out.`;
-
-    const panel = this.add.container(width / 2, height / 2);
-    const backdrop = this.add.rectangle(0, 0, 430, 220, 0x040b13, 0.92).setStrokeStyle(2, 0x365677, 1);
-    const heading = this.add
-      .text(0, -60, title, {
-        color: outcome === 'success' ? '#f8fafc' : '#f59e0b',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-        fontSize: '30px',
+    this.add
+      .text(width / 2, 98, 'Placeholder Scene', {
+        color: '#17324a',
+        fontFamily: 'Palatino Linotype, Book Antiqua, Georgia, serif',
+        fontSize: '42px',
         fontStyle: 'bold',
       })
       .setOrigin(0.5);
-    const summary = this.add
-      .text(0, -12, body, {
-        align: 'center',
-        color: '#cbd5e1',
+
+    this.add
+      .text(
+        width / 2,
+        146,
+        'Gameplay has been intentionally removed. This scene is only a clean handoff point for the next prototype.',
+        {
+          align: 'center',
+          color: '#405466',
+          fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+          fontSize: '18px',
+          wordWrap: { width: 690 },
+        },
+      )
+      .setOrigin(0.5);
+
+    createInfoCard(this, 180, 318, 'Current State', [
+      'No rules, win states, or actors remain.',
+      'No theme-specific assets are loaded.',
+      'Only scaffold visuals are active.',
+    ]);
+    createInfoCard(this, 480, 318, 'Still Wired', [
+      'Scene flow and scaling config.',
+      'Vite entry, HMR, and build output.',
+      'A small tested utility layer.',
+    ]);
+    createInfoCard(this, 780, 318, 'Good Next Moves', [
+      'Define the core loop first.',
+      'Add only the systems you need.',
+      'Replace placeholder copy and art.',
+    ]);
+
+    const backButton = this.add
+      .text(width / 2, height - 72, 'Back to Menu', {
+        backgroundColor: '#17324a',
+        color: '#fff9f0',
         fontFamily: 'Trebuchet MS, Verdana, sans-serif',
         fontSize: '18px',
-        wordWrap: { width: 340 },
+        fontStyle: 'bold',
+        padding: { bottom: 12, left: 20, right: 20, top: 12 },
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+
+    backButton.on('pointerover', () => {
+      backButton.setStyle({
+        backgroundColor: '#274864',
+        color: '#fff3dc',
+      });
+    });
+
+    backButton.on('pointerout', () => {
+      backButton.setStyle({
+        backgroundColor: '#17324a',
+        color: '#fff9f0',
+      });
+    });
+
+    backButton.on('pointerup', () => {
+      this.leaveToMenu();
+    });
+
+    this.add
+      .text(width / 2, height - 34, 'ESC or M also returns to the menu', {
+        color: '#6a7b88',
+        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontSize: '14px',
       })
       .setOrigin(0.5);
-    const restart = createActionLabel(this, -92, 66, 'Restart run');
-    const menu = createActionLabel(this, 92, 66, 'Back to menu');
 
-    restart.on('pointerup', () => {
-      this.scene.restart();
+    this.input.keyboard?.once('keydown-ESC', () => {
+      this.leaveToMenu();
     });
-
-    menu.on('pointerup', () => {
-      this.scene.stop(SceneKey.Ui);
-      this.scene.start(SceneKey.Menu);
-    });
-
-    panel.add([backdrop, heading, summary, restart, menu]);
-    panel.setDepth(20);
-    panel.setScale(0.92);
-    panel.setAlpha(0);
-
-    this.tweens.add({
-      targets: panel,
-      alpha: 1,
-      duration: 180,
-      ease: 'Sine.Out',
-      scale: 1,
-    });
-
-    this.resultOverlay = panel;
-
-    this.keyboard.once('keydown-R', () => {
-      this.scene.restart();
-    });
-    this.keyboard.once('keydown-M', () => {
-      this.scene.stop(SceneKey.Ui);
-      this.scene.start(SceneKey.Menu);
+    this.input.keyboard?.once('keydown-M', () => {
+      this.leaveToMenu();
     });
   }
 
-  private spawnCollectionBurst(origin: Phaser.Math.Vector2): void {
-    const burst = this.add.container(origin.x, origin.y);
-
-    for (let index = 0; index < 8; index += 1) {
-      const spark = this.add.image(0, 0, 'spark-particle').setTint(index % 2 === 0 ? 0xf59e0b : 0x22d3ee);
-      const angle = Phaser.Math.DegToRad(index * 45);
-      const distance = 26 + index * 4;
-
-      burst.add(spark);
-
-      this.tweens.add({
-        targets: spark,
-        alpha: 0,
-        duration: 260,
-        ease: 'Sine.Out',
-        scale: 0,
-        x: Math.cos(angle) * distance,
-        y: Math.sin(angle) * distance,
-      });
+  private leaveToMenu(): void {
+    if (this.leaving) {
+      return;
     }
 
-    this.time.delayedCall(280, () => {
-      burst.destroy();
+    this.leaving = true;
+    this.cameras.main.fadeOut(180, 0, 0, 0);
+    this.time.delayedCall(180, () => {
+      this.scene.start(SceneKey.Menu);
     });
   }
 }
 
-function createActionLabel(
-  scene: Phaser.Scene,
-  x: number,
-  y: number,
-  label: string,
-): Phaser.GameObjects.Text {
-  const button = scene.add
-    .text(x, y, label, {
-      backgroundColor: '#102033',
-      color: '#f8fafc',
+function createInfoCard(scene: Phaser.Scene, x: number, y: number, title: string, lines: string[]): void {
+  scene.add.rectangle(x, y, 250, 186, 0xf8efe3, 0.98).setStrokeStyle(1, 0x42586f, 0.3);
+  scene.add.image(x - 90, y - 62, ASSET_KEYS.beacon).setScale(0.78).setAlpha(0.92);
+  scene.add
+    .text(x - 70, y - 64, title, {
+      color: '#17324a',
       fontFamily: 'Trebuchet MS, Verdana, sans-serif',
       fontSize: '18px',
       fontStyle: 'bold',
-      padding: { left: 18, right: 18, top: 12, bottom: 12 },
     })
-    .setOrigin(0.5)
-    .setInteractive({ useHandCursor: true });
-
-  button.on('pointerover', () => {
-    button.setStyle({
-      backgroundColor: '#16314b',
-      color: '#fef3c7',
-    });
-  });
-
-  button.on('pointerout', () => {
-    button.setStyle({
-      backgroundColor: '#102033',
-      color: '#f8fafc',
-    });
-  });
-
-  return button;
+    .setOrigin(0, 0.5);
+  scene.add
+    .text(x - 94, y - 30, lines.map((line) => `- ${line}`).join('\n'), {
+      color: '#405466',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontSize: '15px',
+      lineSpacing: 10,
+      wordWrap: { width: 188 },
+    })
+    .setOrigin(0, 0);
 }

@@ -21,4 +21,4 @@ It should describe the current truth of the repo. Historical context lives in Gi
 
 ## Features
 
-- `features/project-setup.md` - Phaser/Vite/TypeScript scaffold, entry points, scene startup flow, and build constraints
+- `features/project-setup.md` - neutral Phaser/Vite/TypeScript scaffold, scene startup flow, and build constraints

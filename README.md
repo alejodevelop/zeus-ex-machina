@@ -1,6 +1,6 @@
-# Machine Shift
+# Game Jam Scaffold
 
-Code-first bootstrap for `Gamedev.js Jam 2026` built with `Phaser`, `Vite`, and `TypeScript`.
+Neutral browser game scaffold built with `Phaser`, `Vite`, and strict `TypeScript`.
 
 ## Stack
 
@@ -22,23 +22,23 @@ pnpm build
 pnpm preview
 ```
 
-## Project structure
+## What is in the repo
 
 ```text
-public/assets/      Static assets loaded at runtime
-src/game/scenes/    Scene flow and presentation
-src/game/entities/  Reusable gameplay actors
-src/game/systems/   Session and spawn logic
-src/game/utils/     Pure helpers with tests
+public/assets/      Future runtime-loaded audio, fonts, and art
+src/game/assets.ts  Runtime texture keys for scaffold visuals
+src/game/config.ts  Shared Phaser config and scene registration
+src/game/scenes/    Boot, preload, menu, and placeholder scene flow
+src/game/utils/     Small pure helpers with tests
 ```
 
-## Current vertical slice
+## Current state
 
-- Boot scene that generates runtime textures.
-- Preload scene with external SVG asset loading.
-- Menu scene with the initial loop entry point.
-- Playable factory-floor slice with movement, scoring, timer, and restart flow.
-- UI overlay scene with score and timer updates.
+- No gameplay is implemented on purpose.
+- `BootScene` creates runtime textures for neutral placeholder visuals.
+- `PreloadScene` is kept as the future hook for static asset loading.
+- `MenuScene` routes into a placeholder `GameScene` so the scene pipeline stays wired.
+- The scaffold still supports `pnpm lint`, `pnpm test`, and `pnpm build`.
 
 ## Itch.io notes
 

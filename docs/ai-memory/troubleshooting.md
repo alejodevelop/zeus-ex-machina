@@ -18,8 +18,8 @@ Reusable debugging knowledge for this project.
 - Root cause: absolute asset URLs break when the game is not served from the domain root.
 - Fix: keep `base: './'` in `vite.config.ts`.
 
-## Missing keyboard plugin in gameplay
+## Canvas ratio drift
 
-- Symptom: `Keyboard input is unavailable in GameScene.`
-- Root cause: `src/game/scenes/GameScene.ts` requires `this.input.keyboard`; custom Phaser input config can remove or disable that plugin.
-- Fix: keep the default keyboard plugin available when editing `src/game/config.ts` input settings.
+- Symptom: the canvas looks clipped, stretched, or letterboxed oddly after layout changes.
+- Root cause: `src/styles.css` and `src/game/config.ts` no longer agree on the game frame ratio.
+- Fix: keep `#game` at `16 / 9` in `src/styles.css` or update it together with `GAME_WIDTH` and `GAME_HEIGHT` in `src/game/config.ts`.

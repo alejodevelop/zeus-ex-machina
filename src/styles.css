@@ -1,12 +1,10 @@
 :root {
-  color-scheme: dark;
-  --bg-deep: #03070d;
-  --bg-mid: #081522;
-  --bg-top: #10324b;
-  --frame: rgba(12, 24, 38, 0.9);
-  --frame-line: rgba(148, 163, 184, 0.28);
-  --glow-cool: rgba(34, 211, 238, 0.22);
-  --glow-warm: rgba(245, 158, 11, 0.18);
+  color-scheme: light;
+  --paper: #f1e6d8;
+  --frame: rgba(255, 249, 242, 0.84);
+  --frame-line: rgba(23, 50, 74, 0.18);
+  --mist: rgba(84, 122, 146, 0.14);
+  --warm: rgba(221, 145, 76, 0.2);
 }
 
 * {
@@ -25,8 +23,7 @@ body {
   place-items: center;
   overflow: hidden;
   font-family: 'Trebuchet MS', Verdana, sans-serif;
-  background:
-    radial-gradient(circle at top, var(--bg-top) 0%, var(--bg-mid) 42%, var(--bg-deep) 100%);
+  background: radial-gradient(circle at top left, #fffdf7 0%, var(--paper) 38%, #dbcab8 100%);
 }
 
 body::before,
@@ -39,29 +36,30 @@ body::after {
 
 body::before {
   background:
-    linear-gradient(90deg, transparent 0, transparent 49%, rgba(148, 163, 184, 0.08) 50%, transparent 51%, transparent 100%),
-    linear-gradient(transparent 0, transparent 49%, rgba(148, 163, 184, 0.08) 50%, transparent 51%, transparent 100%);
-  background-size: 48px 48px;
-  opacity: 0.2;
+    radial-gradient(circle at 18% 20%, var(--mist), transparent 26%),
+    radial-gradient(circle at 82% 24%, var(--warm), transparent 24%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.44), rgba(255, 255, 255, 0));
 }
 
 body::after {
-  background:
-    radial-gradient(circle at 18% 20%, var(--glow-cool), transparent 28%),
-    radial-gradient(circle at 82% 74%, var(--glow-warm), transparent 24%);
+  background: linear-gradient(rgba(23, 50, 74, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(23, 50, 74, 0.04) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mix-blend-mode: multiply;
+  opacity: 0.5;
 }
 
 #game {
   width: min(calc(100vw - 24px), 960px);
   aspect-ratio: 16 / 9;
   border: 1px solid var(--frame-line);
-  border-radius: 24px;
+  border-radius: 28px;
   overflow: hidden;
-  background: linear-gradient(180deg, rgba(8, 21, 34, 0.98), var(--frame));
+  background: linear-gradient(180deg, rgba(255, 251, 245, 0.95), var(--frame));
   box-shadow:
-    0 40px 100px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(248, 250, 252, 0.08),
-    0 0 0 1px rgba(15, 23, 42, 0.45);
+    0 40px 100px rgba(83, 59, 33, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 1px rgba(23, 50, 74, 0.05);
 }
 
 #game canvas {
@@ -73,6 +71,6 @@ body::after {
 @media (max-width: 720px) {
   #game {
     width: min(calc(100vw - 16px), 960px);
-    border-radius: 18px;
+    border-radius: 20px;
   }
 }
