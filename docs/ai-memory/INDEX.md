@@ -21,4 +21,5 @@ It should describe the current truth of the repo. Historical context lives in Gi
 
 ## Features
 
+- `features/local-agent-validation.md` - dev-only browser validation flow with Playwright-friendly hooks and `window.__gameDebug`
 - `features/project-setup.md` - neutral Phaser/Vite/TypeScript scaffold, scene startup flow, and build constraints

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 
+import { agentLaunchOptions } from '../../agent/session';
 import { SceneKey } from './scene-keys';
 
 export class PreloadScene extends Phaser.Scene {
@@ -70,7 +71,7 @@ export class PreloadScene extends Phaser.Scene {
     });
 
     this.time.delayedCall(260, () => {
-      this.scene.start(SceneKey.Menu);
+      this.scene.start(agentLaunchOptions.startScene ?? SceneKey.Menu);
     });
   }
 }

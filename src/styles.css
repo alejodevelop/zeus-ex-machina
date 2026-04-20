@@ -68,7 +68,160 @@ body::after {
   height: 100%;
 }
 
+#agent-tools-root {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 20;
+  width: min(320px, calc(100vw - 32px));
+}
+
+.agent-hud {
+  padding: 14px 14px 16px;
+  border: 1px solid rgba(17, 41, 63, 0.22);
+  border-radius: 18px;
+  color: #17324a;
+  background: rgba(255, 250, 244, 0.95);
+  box-shadow: 0 16px 42px rgba(44, 29, 14, 0.16);
+  backdrop-filter: blur(12px);
+}
+
+.agent-hud__title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.agent-hud__eyebrow,
+.agent-hud__title {
+  margin: 0;
+}
+
+.agent-hud__eyebrow {
+  color: #8b5b34;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.agent-hud__title {
+  margin-top: 4px;
+  font-family: 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  font-size: 24px;
+  line-height: 1.1;
+}
+
+.agent-hud__badge {
+  flex-shrink: 0;
+  padding: 5px 8px;
+  border-radius: 999px;
+  color: #8b5b34;
+  background: rgba(240, 180, 109, 0.22);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.agent-hud__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 0;
+}
+
+.agent-hud__stat {
+  min-width: 0;
+  padding: 10px 11px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+}
+
+.agent-hud__stat dt,
+.agent-hud__stat dd {
+  margin: 0;
+}
+
+.agent-hud__stat dt {
+  color: #6d7d89;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agent-hud__stat dd {
+  margin-top: 6px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+.agent-hud__actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.agent-hud__actions-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agent-hud__button {
+  padding: 9px 12px;
+  border: 1px solid rgba(23, 50, 74, 0.16);
+  border-radius: 999px;
+  color: #fff9f0;
+  background: #17324a;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform 120ms ease,
+    background-color 120ms ease,
+    color 120ms ease;
+}
+
+.agent-hud__button:hover {
+  transform: translateY(-1px);
+  background: #284a66;
+}
+
+.agent-hud__button--secondary {
+  color: #17324a;
+  background: rgba(255, 255, 255, 0.8);
+}
+
+.agent-hud__button--secondary:hover {
+  background: #ffffff;
+}
+
 @media (max-width: 720px) {
+  #agent-tools-root {
+    top: 10px;
+    left: 10px;
+    width: min(320px, calc(100vw - 20px));
+  }
+
+  .agent-hud {
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .agent-hud__title {
+    font-size: 22px;
+  }
+
+  .agent-hud__grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   #game {
     width: min(calc(100vw - 16px), 960px);
     border-radius: 20px;

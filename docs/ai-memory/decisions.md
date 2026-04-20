@@ -39,3 +39,9 @@ Cross-feature decisions and constraints that future work should preserve.
 
 - `vite.config.ts` keeps `base: './'` so built asset URLs stay relative.
 - Treat `dist/` as the deployable HTML5 bundle; this supports direct upload to hosts like `itch.io` that serve the game from a subpath or zip root.
+
+## Local agent validation
+
+- Local visual and playable validation runs from Vite dev mode through `pnpm dev:agent`, which fixes the URL at `http://127.0.0.1:5173` for browser automation.
+- Dev-only browser hooks are opt-in through `?agent-tools=1`; production builds must not depend on the HUD or `window.__gameDebug`.
+- Use Playwright-driven browser input for real interaction, and use `window.__gameDebug` only for scene jumps, focus recovery, and exact state reads that a canvas screenshot cannot expose.
