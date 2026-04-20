@@ -45,6 +45,7 @@ Cross-feature decisions and constraints that future work should preserve.
 - Local visual and playable validation runs from Vite dev mode through `pnpm dev:agent`, which fixes the URL at `http://127.0.0.1:5173` for browser automation.
 - Dev-only browser hooks are opt-in through `?agent-tools=1`; production builds must not depend on the HUD or `window.__gameDebug`.
 - Use Playwright-driven browser input for real interaction, and use `window.__gameDebug` only for scene jumps, focus recovery, and exact state reads that a canvas screenshot cannot expose.
+- `playwright-cli` is a local agent-environment prerequisite and is intentionally not added to `package.json`.
 
 ## Agent-operated pixel art
 
