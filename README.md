@@ -32,10 +32,19 @@ pnpm preview
 - The browser side assumes a local `playwright-cli` command in the agent environment; it is intentionally not pinned as a repo dependency.
 - Detailed browser automation workflow lives in `docs/agent-local-validation.md`.
 
+## Local pixel art workflow
+
+- Use `https://www.piskelapp.com/kids/` as the default browser editor for agent-made pixel art.
+- Keep editable `.piskel` source files under `art/piskel/`.
+- Export runtime PNG, GIF, and sprite sheets into `public/assets/sprites/` or `public/assets/tilesets/`.
+- Shared starter palettes live under `art/piskel/palettes/`.
+- Detailed workflow notes live in `docs/agent-piskel-workflow.md`.
+
 ## What is in the repo
 
 ```text
-public/assets/      Future runtime-loaded audio, fonts, and art
+art/piskel/         Editable Piskel sources, briefs, and shared palettes
+public/assets/      Runtime-loaded audio, fonts, and exported art
 src/game/assets.ts  Runtime texture keys for scaffold visuals
 src/game/config.ts  Shared Phaser config and scene registration
 src/game/scenes/    Boot, preload, menu, and placeholder scene flow
@@ -49,6 +58,7 @@ src/game/utils/     Small pure helpers with tests
 - `PreloadScene` is kept as the future hook for static asset loading.
 - `MenuScene` routes into a placeholder `GameScene` so the scene pipeline stays wired.
 - Dev mode now supports local agent validation through Playwright-friendly canvas hooks and a debug bridge.
+- The repo now includes a Piskel-based local art workflow for agent-operated pixel assets.
 - The scaffold still supports `pnpm lint`, `pnpm test`, and `pnpm build`.
 
 ## Itch.io notes

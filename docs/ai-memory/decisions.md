@@ -45,3 +45,10 @@ Cross-feature decisions and constraints that future work should preserve.
 - Local visual and playable validation runs from Vite dev mode through `pnpm dev:agent`, which fixes the URL at `http://127.0.0.1:5173` for browser automation.
 - Dev-only browser hooks are opt-in through `?agent-tools=1`; production builds must not depend on the HUD or `window.__gameDebug`.
 - Use Playwright-driven browser input for real interaction, and use `window.__gameDebug` only for scene jumps, focus recovery, and exact state reads that a canvas screenshot cannot expose.
+
+## Agent-operated pixel art
+
+- The default pixel-art tool for the agent is the ad-free Piskel editor at `https://www.piskelapp.com/kids/`, because it stays browser-based and Playwright-operable.
+- Keep editable `.piskel` source files and shared palettes under `art/piskel/`.
+- Export runtime PNG, GIF, and sprite sheet assets into `public/assets/`; those exports are the files the game should load.
+- Prefer local save and export flows over Piskel gallery or account-based storage.

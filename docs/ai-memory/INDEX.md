@@ -22,4 +22,5 @@ It should describe the current truth of the repo. Historical context lives in Gi
 ## Features
 
 - `features/local-agent-validation.md` - dev-only browser validation flow with Playwright-friendly hooks and `window.__gameDebug`
+- `features/piskel-asset-workflow.md` - ad-free Piskel browser workflow, source/export locations, and shared starter palette for agent-made pixel art
 - `features/project-setup.md` - neutral Phaser/Vite/TypeScript scaffold, scene startup flow, and build constraints
