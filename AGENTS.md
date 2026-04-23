@@ -1,5 +1,14 @@
 # Project Instructions
 
+## Quick Capability Index
+
+- Memory lookup: `docs/ai-memory/INDEX.md`, `/recall-feature`, `/remember-feature`, `/review-memory`
+- Local game run: `pnpm dev`, `pnpm dev:agent`
+- Browser validation: local `playwright-cli`, `?agent-tools=1`, `&hud=0`, `&scene=menu|game`, `window.__gameDebug`
+- Pixel art workflow: `https://www.piskelapp.com/kids/`, `art/piskel/`, `public/assets/sprites/`, `public/assets/tilesets/`
+- Quality checks: `pnpm lint`, `pnpm test`, `pnpm build`, `pnpm preview`
+- Core stack at hand: `Phaser`, `Vite`, strict `TypeScript`, `Vitest`, `ESLint`, `pnpm`
+
 <!-- opencode-memory-kit:start -->
 ## Project Memory Workflow
 
