@@ -22,7 +22,7 @@ Cross-feature decisions and constraints that future work should preserve.
 
 - `src/main.ts` is the single browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
 - Scene order is defined centrally in `src/game/config.ts`: `BootScene` -> `PreloadScene` -> `MenuScene` -> `GameScene`.
-- `BootScene` owns runtime-generated placeholder textures and `PreloadScene` is the hook for future external asset loading.
+- `BootScene` owns runtime-generated placeholder textures and `PreloadScene` stays as the lightweight routing point where future external asset loading can be added.
 - Keep scene ids in `src/game/scenes/scene-keys.ts` and scaffold asset keys in `src/game/assets.ts` to avoid string drift.
 
 ## Frame sizing

@@ -3,7 +3,7 @@
 ## Summary
 - The project is a browser game scaffold built with `Phaser`, `Vite`, strict `TypeScript`, `ESLint`, `Vitest`, and `pnpm`.
 - `src/main.ts` is the only browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
-- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` is the future asset-loading hook, `MenuScene` is the landing scene, and `GameScene` is an intentional placeholder with no gameplay.
+- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is an intentional placeholder with no gameplay loop.
 
 ## Files
 - `package.json` - scripts, dependency versions, and pinned `pnpm@10.33.0` package manager.
@@ -12,10 +12,10 @@
 - `src/game/config.ts` - shared game size, scaling, render settings, and scene registration.
 - `src/game/assets.ts` - scaffold texture ids generated at runtime.
 - `src/game/scenes/BootScene.ts` - generates runtime placeholder textures before preload.
-- `src/game/scenes/PreloadScene.ts` - keeps the preload step in place for future static asset loading.
+- `src/game/scenes/PreloadScene.ts` - lightweight routing scene that still leaves room for future static asset loading.
 - `src/game/scenes/scene-keys.ts` - canonical scene ids.
-- `src/game/scenes/MenuScene.ts` - neutral landing screen for the reset project.
-- `src/game/scenes/GameScene.ts` - placeholder scene that marks the handoff point for the next prototype.
+- `src/game/scenes/MenuScene.ts` - minimal title screen that starts the placeholder scene on pointer or keyboard input.
+- `src/game/scenes/GameScene.ts` - placeholder scene with explicit return-to-menu controls.
 - `src/styles.css` - shell styling around the fixed-aspect Phaser canvas.
 
 ## Decisions

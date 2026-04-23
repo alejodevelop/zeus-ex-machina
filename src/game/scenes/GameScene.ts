@@ -12,6 +12,9 @@ export class GameScene extends Phaser.Scene {
 
   public create(): void {
     const { width, height } = this.scale;
+
+    this.leaving = false;
+
     const accent = this.add.image(width - 136, 108, ASSET_KEYS.emblem).setAlpha(0.12).setScale(0.84);
     const backdrop = this.add.graphics();
 
