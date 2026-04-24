@@ -37,6 +37,11 @@ Cross-feature decisions and constraints that future work should preserve.
 - Put deterministic, non-Phaser-heavy logic in plain modules under `src/game/` or `src/game/utils/` so it can be unit tested without a browser runtime.
 - Time-based gameplay helpers should clamp unusually large frame deltas before applying movement so tab stalls do not create oversized simulation steps.
 
+## Mechanic prototyping workflow
+
+- Build and validate each maintenance mechanic as an isolated sandbox in an otherwise empty room before combining mechanics during level design.
+- Keep reusable task logic in plain modules under `src/game/` so one sandbox can be swapped out of `GameScene` without deleting the mechanic's underlying systems.
+
 ## Deployment target
 
 - `vite.config.ts` keeps `base: './'` so built asset URLs stay relative.

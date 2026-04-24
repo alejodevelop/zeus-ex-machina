@@ -80,6 +80,26 @@ export class BootScene extends Phaser.Scene {
     drawDiscardBin(graphics);
     graphics.generateTexture(ASSET_KEYS.discardBin, 112, 112);
 
+    graphics.clear();
+    drawRepairPlate(graphics, 0xe1b36f, 0x7e5734, 0xffefcb);
+    graphics.generateTexture(ASSET_KEYS.repairPlate, 96, 48);
+
+    graphics.clear();
+    drawRepairPlateSupply(graphics);
+    graphics.generateTexture(ASSET_KEYS.repairPlateSupply, 136, 112);
+
+    graphics.clear();
+    drawCrack(graphics, 0x6f604f, 0x43382d, 0.65);
+    graphics.generateTexture(ASSET_KEYS.crackWarning, 180, 120);
+
+    graphics.clear();
+    drawCrack(graphics, 0x45382c, 0x1d1510, 1);
+    graphics.generateTexture(ASSET_KEYS.crackBlocked, 180, 120);
+
+    graphics.clear();
+    drawPatchedCrack(graphics);
+    graphics.generateTexture(ASSET_KEYS.crackPatched, 180, 120);
+
     graphics.destroy();
   }
 }
@@ -163,4 +183,72 @@ function drawDiscardBin(graphics: Phaser.GameObjects.Graphics): void {
   graphics.lineBetween(38, 32, 38, 84);
   graphics.lineBetween(56, 32, 56, 84);
   graphics.lineBetween(74, 32, 74, 84);
+}
+
+function drawRepairPlate(
+  graphics: Phaser.GameObjects.Graphics,
+  fillColor: number,
+  lineColor: number,
+  boltColor: number,
+  offsetX = 0,
+  offsetY = 0,
+): void {
+  graphics.fillStyle(fillColor, 1);
+  graphics.fillRoundedRect(offsetX + 8, offsetY + 8, 80, 32, 8);
+  graphics.lineStyle(3, lineColor, 1);
+  graphics.strokeRoundedRect(offsetX + 8, offsetY + 8, 80, 32, 8);
+  graphics.fillStyle(boltColor, 1);
+  graphics.fillCircle(offsetX + 22, offsetY + 18, 4);
+  graphics.fillCircle(offsetX + 74, offsetY + 18, 4);
+  graphics.fillCircle(offsetX + 22, offsetY + 30, 4);
+  graphics.fillCircle(offsetX + 74, offsetY + 30, 4);
+}
+
+function drawRepairPlateSupply(graphics: Phaser.GameObjects.Graphics): void {
+  graphics.fillStyle(0x694936, 1);
+  graphics.fillRoundedRect(12, 12, 112, 88, 18);
+  graphics.lineStyle(3, 0x3d291d, 1);
+  graphics.strokeRoundedRect(12, 12, 112, 88, 18);
+  drawRepairPlate(graphics, 0xe1b36f, 0x7e5734, 0xffefcb, 8, 14);
+  drawRepairPlate(graphics, 0xf0c67d, 0x87603e, 0xfff5d9, 22, 32);
+}
+
+function drawCrack(
+  graphics: Phaser.GameObjects.Graphics,
+  fillColor: number,
+  lineColor: number,
+  alpha: number,
+): void {
+  graphics.fillStyle(fillColor, alpha);
+  graphics.fillRoundedRect(16, 30, 148, 50, 22);
+  graphics.lineStyle(5, lineColor, 1);
+  graphics.beginPath();
+  graphics.moveTo(24, 54);
+  graphics.lineTo(46, 38);
+  graphics.lineTo(72, 62);
+  graphics.lineTo(94, 34);
+  graphics.lineTo(118, 68);
+  graphics.lineTo(146, 42);
+  graphics.lineTo(160, 62);
+  graphics.strokePath();
+  graphics.beginPath();
+  graphics.moveTo(44, 72);
+  graphics.lineTo(66, 50);
+  graphics.lineTo(88, 80);
+  graphics.lineTo(112, 48);
+  graphics.lineTo(138, 78);
+  graphics.strokePath();
+}
+
+function drawPatchedCrack(graphics: Phaser.GameObjects.Graphics): void {
+  drawCrack(graphics, 0x65574a, 0x2e241d, 0.5);
+  graphics.fillStyle(0xd8b27c, 1);
+  graphics.fillRoundedRect(42, 34, 96, 44, 10);
+  graphics.lineStyle(3, 0x7e5734, 1);
+  graphics.strokeRoundedRect(42, 34, 96, 44, 10);
+  graphics.fillStyle(0xffefcb, 1);
+  graphics.fillCircle(54, 46, 4);
+  graphics.fillCircle(126, 46, 4);
+  graphics.fillCircle(54, 66, 4);
+  graphics.fillCircle(126, 66, 4);
 }

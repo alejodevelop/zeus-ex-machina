@@ -23,6 +23,7 @@ It should describe the current truth of the repo. Historical context lives in Gi
 
 - `features/basic-movement.md` - single-room top-down movement prototype with bounded `WASD`/arrow-key movement and gameplay debug state
 - `features/battery-replacement-slice.md` - first implemented maintenance loop with pure battery state flow, carry limits, room stations, and debug-visible interaction state
+- `features/cracks-sandbox-slice.md` - isolated cracks-only prototype room with timed crack failures, repair-plate carry flow, traversal blockers, and debug-visible crack state
 - `features/dash-added.md` - Shift-triggered movement dash with locked dash direction, short cooldown, and debug-visible dash state
 - `features/game-direction.md` - agreed pre-content machine-maintenance direction, planned failure types, shift framing, and current non-implemented status
 - `features/local-agent-toolchain.md` - local-only agent workflow boundary: fixed dev URL, external `playwright-cli`, and validation/art entry points

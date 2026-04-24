@@ -5,10 +5,10 @@ import type { AgentLaunchOptions } from './launch-options';
 export interface GameDebugGameplayPlayerState {
   canDash: boolean;
   dashCooldownRemainingMs: number;
-  heldItem: 'dead-battery' | 'fresh-battery' | null;
+  heldItem: 'dead-battery' | 'fresh-battery' | 'repair-plate' | null;
   isDashing: boolean;
   isMoving: boolean;
-  nearbyTarget: 'battery-supply' | 'discard-bin' | 'machine' | null;
+  nearbyTarget: 'battery-supply' | 'crack-left' | 'crack-right' | 'discard-bin' | 'machine' | 'repair-plate-supply' | null;
   x: number;
   y: number;
 }
@@ -19,6 +19,15 @@ export interface GameDebugBatteryTaskState {
   objective: 'complete' | 'discard-dead-battery' | 'grab-fresh-battery' | 'install-fresh-battery' | 'remove-dead-battery';
 }
 
+export interface GameDebugCracksTaskState {
+  activeSiteId: 'left-lane' | 'right-lane' | null;
+  completedRepairs: number;
+  objective: 'complete' | 'grab-repair-plate' | 'repair-crack' | 'wait';
+  status: 'blocked' | 'idle' | 'patched' | 'warning' | null;
+  timeUntilBlockedMs: number | null;
+  triggered: boolean;
+}
+
 export interface GameDebugGameplayState {
   batteryTask: GameDebugBatteryTaskState | null;
   bounds: {
@@ -27,6 +36,7 @@ export interface GameDebugGameplayState {
     minX: number;
     minY: number;
   } | null;
+  cracksTask: GameDebugCracksTaskState | null;
   player: GameDebugGameplayPlayerState | null;
   ready: boolean;
 }

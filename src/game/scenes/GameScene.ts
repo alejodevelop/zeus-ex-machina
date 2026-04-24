@@ -3,20 +3,23 @@ import Phaser from 'phaser';
 import type { GameDebugGameplayState } from '../../agent/debug';
 import { ASSET_KEYS } from '../assets';
 import {
-  BatteryMachineStateId,
-  BatteryObjectiveId,
-  BatteryStation,
-  HeldItemId,
-  canDashWithHeldItem,
-  createBatteryFlowState,
-  getBatteryInteractionPrompt,
-  resolveBatteryInteraction,
-  resolveBatteryObjective,
-  resolveBatteryObjectiveTarget,
-  type BatteryFlowState,
-  type BatteryObjective,
-  type BatteryStationId,
-} from '../battery-flow';
+  CrackSiteId,
+  CrackStationId,
+  CrackStatusId,
+  DEFAULT_CRACKS_FLOW_CONFIG,
+  advanceCracksState,
+  createCracksFlowState,
+  getCracksInteractionPrompt,
+  resolveCracksInteraction,
+  resolveCracksObjective,
+  resolveCracksObjectiveTarget,
+  type CrackInteractionTarget,
+  type CrackSite,
+  type CrackStatus,
+  type CracksFlowState,
+  type CracksObjective,
+} from '../cracks-flow';
+import { canDashWithHeldItem, type HeldItem } from '../maintenance-items';
 import {
   advancePosition,
   createDashState,
@@ -26,16 +29,27 @@ import {
   type MovementStep,
   type Point2,
 } from '../movement';
+import { constrainPointToBlockers, type TraversalBlocker } from '../traversal-blockers';
 import { SceneKey } from './scene-keys';
 
 type GameSceneDebugState = GameDebugGameplayState;
-
-type InteractionStationMap = Record<BatteryStationId, InteractionStation>;
+type InteractionStationMap = Record<CrackInteractionTarget, InteractionStation>;
 type MovementKeyMap = Record<'down' | 'left' | 'right' | 'up', Phaser.Input.Keyboard.Key>;
+type CrackVisualMap = Record<CrackSite, CrackVisual>;
 
 interface InteractionStation {
   actionIcon: Phaser.GameObjects.Image;
   targetPoint: Point2;
+}
+
+interface CrackVisual {
+  blocker: TraversalBlocker;
+  sprite: Phaser.GameObjects.Image;
+}
+
+interface RenderedRoom {
+  crackVisuals: CrackVisualMap;
+  stations: InteractionStationMap;
 }
 
 const INTERACT_DISTANCE = 88;
@@ -43,29 +57,28 @@ const PLAYER_RADIUS = 24;
 const PLAYER_SPEED = 240;
 
 export class GameScene extends Phaser.Scene {
-  private batteryCompletionText?: Phaser.GameObjects.Text;
-  private batteryFlowState: BatteryFlowState = createBatteryFlowState();
-  private carriedBattery?: Phaser.GameObjects.Image;
+  private carriedItem?: Phaser.GameObjects.Image;
+  private crackVisuals?: CrackVisualMap;
+  private cracksFlowState: CracksFlowState = createCracksFlowState(DEFAULT_CRACKS_FLOW_CONFIG);
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private dashQueued = false;
   private dashState: DashState = createDashState();
   private debugState: GameSceneDebugState = {
     batteryTask: null,
     bounds: null,
+    cracksTask: null,
     player: null,
     ready: false,
   };
+  private heldItem: HeldItem = null;
   private interactionPrompt?: Phaser.GameObjects.Text;
   private interactionQueued = false;
   private interactionStations?: InteractionStationMap;
-  private leaving = false;
-  private machineImage?: Phaser.GameObjects.Image;
   private movementKeys?: MovementKeyMap;
   private objectiveBanner?: Phaser.GameObjects.Text;
   private playBounds: MovementBounds | null = null;
   private player?: Phaser.GameObjects.Image;
   private playerShadow?: Phaser.GameObjects.Ellipse;
-  private successPulse?: Phaser.GameObjects.Ellipse;
 
   constructor() {
     super(SceneKey.Game);
@@ -80,11 +93,11 @@ export class GameScene extends Phaser.Scene {
       y: walkArea.y + walkArea.height - 10,
     };
 
-    this.leaving = false;
+    this.cracksFlowState = createCracksFlowState(DEFAULT_CRACKS_FLOW_CONFIG);
+    this.heldItem = null;
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
     this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.E);
-    this.batteryFlowState = createBatteryFlowState();
     this.dashQueued = false;
     this.dashState = createDashState();
     this.interactionQueued = false;
@@ -104,11 +117,13 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(260, 0, 0, 0);
     this.cameras.main.setBackgroundColor('#ead8bf');
 
-    this.interactionStations = renderBatteryRoom(this, room, walkArea);
-    this.machineImage = this.interactionStations.machine.actionIcon;
+    const renderedRoom = renderCracksSandbox(this, room, walkArea);
+
+    this.interactionStations = renderedRoom.stations;
+    this.crackVisuals = renderedRoom.crackVisuals;
     this.playerShadow = this.add.ellipse(spawnPoint.x, spawnPoint.y + 18, 44, 18, 0x31190c, 0.16).setDepth(6);
     this.player = this.add.image(spawnPoint.x, spawnPoint.y, ASSET_KEYS.player).setDepth(7);
-    this.carriedBattery = this.add.image(spawnPoint.x, spawnPoint.y - 30, ASSET_KEYS.batteryDead).setDepth(8).setVisible(false);
+    this.carriedItem = this.add.image(spawnPoint.x, spawnPoint.y - 30, ASSET_KEYS.repairPlate).setDepth(8).setVisible(false);
     this.interactionPrompt = this.add
       .text(room.x + room.width / 2, room.y + room.height - 28, '', {
         backgroundColor: '#17324a',
@@ -130,32 +145,7 @@ export class GameScene extends Phaser.Scene {
       })
       .setDepth(4)
       .setOrigin(0.5);
-    this.batteryCompletionText = this.add
-      .text(room.x + room.width / 2, room.y + 102, 'Power restored', {
-        color: '#2d6a4f',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-        fontSize: '18px',
-        fontStyle: 'bold',
-      })
-      .setDepth(4)
-      .setOrigin(0.5)
-      .setAlpha(0);
-    this.successPulse = this.add.ellipse(
-      this.interactionStations.machine.targetPoint.x,
-      this.interactionStations.machine.targetPoint.y,
-      132,
-      132,
-      0xa4d573,
-      0,
-    );
-    this.successPulse.setDepth(2.5);
 
-    this.input.keyboard?.once('keydown-ESC', () => {
-      this.leaveToMenu();
-    });
-    this.input.keyboard?.once('keydown-M', () => {
-      this.leaveToMenu();
-    });
     this.input.keyboard?.on('keydown-SHIFT', this.queueDash, this);
     this.input.keyboard?.on('keydown-E', this.queueInteraction, this);
 
@@ -180,63 +170,84 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
+    const previousPosition = { x: this.player.x, y: this.player.y };
+    const cracksAdvance = advanceCracksState(this.cracksFlowState, delta, DEFAULT_CRACKS_FLOW_CONFIG);
+
+    this.cracksFlowState = cracksAdvance.nextState;
+
+    if (cracksAdvance.crackTriggered || cracksAdvance.becameBlocked) {
+      this.cameras.main.shake(140, 0.0022);
+    }
+
     const step = advancePosition(
-      { x: this.player.x, y: this.player.y },
+      previousPosition,
       this.readMovementInput(),
       PLAYER_SPEED,
       delta,
       this.playBounds,
       this.dashState,
     );
-    const nearbyTarget = findNearbyStation({ x: step.nextPosition.x, y: step.nextPosition.y }, this.interactionStations);
+    const constrainedPosition = constrainPointToBlockers(
+      previousPosition,
+      step.nextPosition,
+      PLAYER_RADIUS,
+      this.getActiveBlockers(),
+    );
+    const adjustedStep: MovementStep = {
+      ...step,
+      isMoving: constrainedPosition.x !== previousPosition.x || constrainedPosition.y !== previousPosition.y,
+      nextPosition: constrainedPosition,
+    };
+    const nearbyTarget = findNearbyStation(constrainedPosition, this.interactionStations, this.cracksFlowState);
 
-    this.dashState = step.dashState;
-    this.player.setPosition(step.nextPosition.x, step.nextPosition.y);
-    this.player.setScale(step.dashState.isDashing ? 1.12 : step.isMoving ? 1.02 : 1);
-    this.playerShadow?.setPosition(step.nextPosition.x, step.nextPosition.y + 18);
-    this.playerShadow?.setScale(step.dashState.isDashing ? 1.18 : 1, step.dashState.isDashing ? 0.84 : 1);
-    this.playerShadow?.setAlpha(step.dashState.isDashing ? 0.28 : step.isMoving ? 0.22 : 0.16);
+    this.dashState = adjustedStep.dashState;
+    this.player.setPosition(adjustedStep.nextPosition.x, adjustedStep.nextPosition.y);
+    this.player.setScale(adjustedStep.dashState.isDashing ? 1.12 : adjustedStep.isMoving ? 1.02 : 1);
+    this.playerShadow?.setPosition(adjustedStep.nextPosition.x, adjustedStep.nextPosition.y + 18);
+    this.playerShadow?.setScale(adjustedStep.dashState.isDashing ? 1.18 : 1, adjustedStep.dashState.isDashing ? 0.84 : 1);
+    this.playerShadow?.setAlpha(adjustedStep.dashState.isDashing ? 0.28 : adjustedStep.isMoving ? 0.22 : 0.16);
 
     if (this.consumeInteractionQueue()) {
-      this.applyBatteryInteraction(nearbyTarget);
+      this.applyInteraction(nearbyTarget);
     }
 
     this.refreshScenePresentation(nearbyTarget);
-    this.syncDebugState(step, nearbyTarget);
+    this.syncDebugState(adjustedStep, nearbyTarget);
   }
 
   public getDebugState(): GameSceneDebugState {
     return {
-      batteryTask: this.debugState.batteryTask ? { ...this.debugState.batteryTask } : null,
+      batteryTask: null,
       bounds: this.debugState.bounds ? { ...this.debugState.bounds } : null,
+      cracksTask: this.debugState.cracksTask ? { ...this.debugState.cracksTask } : null,
       player: this.debugState.player ? { ...this.debugState.player } : null,
       ready: this.debugState.ready,
     };
   }
 
-  private applyBatteryInteraction(target: BatteryStationId | null): void {
-    const interaction = resolveBatteryInteraction(this.batteryFlowState, target);
+  private applyInteraction(target: CrackInteractionTarget | null): void {
+    const interaction = resolveCracksInteraction(this.cracksFlowState, this.heldItem, target, DEFAULT_CRACKS_FLOW_CONFIG);
 
     if (!interaction.changed) {
       return;
     }
 
-    this.batteryFlowState = interaction.nextState;
+    this.cracksFlowState = interaction.nextState;
+    this.heldItem = interaction.nextHeldItem;
 
-    if (interaction.action === 'install') {
-      this.tweens.add({
-        alpha: 0.34,
-        duration: 160,
-        targets: this.successPulse,
-        width: 176,
-        yoyo: true,
-      });
-      this.tweens.add({
-        alpha: 1,
-        duration: 220,
-        ease: 'Sine.Out',
-        targets: this.batteryCompletionText,
-      });
+    if (interaction.action === 'repair') {
+      const repairedSite = this.findPatchedSite();
+
+      if (repairedSite && this.crackVisuals) {
+        this.tweens.add({
+          duration: 180,
+          ease: 'Sine.Out',
+          scaleX: 1.08,
+          scaleY: 1.08,
+          targets: this.crackVisuals[repairedSite].sprite,
+          yoyo: true,
+        });
+      }
     }
   }
 
@@ -256,20 +267,24 @@ export class GameScene extends Phaser.Scene {
     return interactionQueued;
   }
 
-  private leaveToMenu(): void {
-    if (this.leaving) {
-      return;
+  private findPatchedSite(): CrackSite | null {
+    for (const siteId of [CrackSiteId.LeftLane, CrackSiteId.RightLane]) {
+      if (this.cracksFlowState.sites[siteId].status === CrackStatusId.Patched) {
+        return siteId;
+      }
     }
 
-    this.leaving = true;
-    this.debugState = {
-      ...this.debugState,
-      ready: false,
-    };
-    this.cameras.main.fadeOut(180, 0, 0, 0);
-    this.time.delayedCall(180, () => {
-      this.scene.start(SceneKey.Menu);
-    });
+    return null;
+  }
+
+  private getActiveBlockers(): TraversalBlocker[] {
+    if (!this.crackVisuals) {
+      return [];
+    }
+
+    return (Object.entries(this.crackVisuals) as [CrackSite, CrackVisual][])
+      .filter(([siteId]) => this.cracksFlowState.sites[siteId].status === CrackStatusId.Blocked)
+      .map(([, crackVisual]) => crackVisual.blocker);
   }
 
   private queueDash(event: KeyboardEvent): void {
@@ -289,7 +304,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private readMovementInput(): MovementInputState {
-    const canDash = canDashWithHeldItem(this.batteryFlowState.heldItem);
+    const canDash = canDashWithHeldItem(this.heldItem);
 
     if (!canDash) {
       this.consumeDashQueue();
@@ -304,51 +319,88 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private refreshScenePresentation(nearbyTarget: BatteryStationId | null = null): void {
-    const objectiveTarget = resolveBatteryObjectiveTarget(this.batteryFlowState);
-    const prompt = getBatteryInteractionPrompt(this.batteryFlowState, nearbyTarget);
-
-    this.interactionPrompt?.setVisible(Boolean(prompt));
-    this.interactionPrompt?.setText(prompt ?? '');
-    this.objectiveBanner?.setText(getObjectiveLabel(resolveBatteryObjective(this.batteryFlowState)));
-    this.batteryCompletionText?.setVisible(Boolean(this.batteryCompletionText && (this.batteryFlowState.completed || this.batteryCompletionText.alpha > 0)));
-
-    if (this.carriedBattery && this.player) {
-      const heldItem = this.batteryFlowState.heldItem;
-
-      this.carriedBattery.setVisible(heldItem !== null);
-
-      if (heldItem !== null) {
-        this.carriedBattery.setTexture(heldItem === HeldItemId.DeadBattery ? ASSET_KEYS.batteryDead : ASSET_KEYS.batteryFresh);
-        this.carriedBattery.setPosition(this.player.x, this.player.y - 32);
-      }
+  private refreshCrackVisuals(objectiveTarget: CrackInteractionTarget | null): void {
+    if (!this.crackVisuals) {
+      return;
     }
 
-    this.machineImage?.setTexture(getMachineTexture(this.batteryFlowState.machine));
+    for (const [siteId, crackVisual] of Object.entries(this.crackVisuals) as [CrackSite, CrackVisual][]) {
+      const status = this.cracksFlowState.sites[siteId].status;
 
-    if (this.interactionStations) {
-      for (const [stationId, station] of Object.entries(this.interactionStations) as [BatteryStationId, InteractionStation][]) {
-        const isObjective = stationId === objectiveTarget;
+      if (status === CrackStatusId.Idle) {
+        crackVisual.sprite.setVisible(false);
 
-        station.actionIcon.setScale(isObjective ? 1.05 : 1);
-        station.actionIcon.setAlpha(isObjective ? 1 : 0.82);
+        continue;
+      }
+
+      crackVisual.sprite.setVisible(true);
+      crackVisual.sprite.setTexture(getCrackTexture(status));
+      crackVisual.sprite.setScale(objectiveTarget === getCrackStationId(siteId) ? 1.06 : 1);
+
+      if (status === CrackStatusId.Warning) {
+        crackVisual.sprite.setAlpha(0.72 + Math.sin(this.time.now / 120) * 0.16);
+      } else {
+        crackVisual.sprite.setAlpha(1);
       }
     }
   }
 
-  private syncDebugState(step: MovementStep, nearbyTarget: BatteryStationId | null = null): void {
+  private refreshScenePresentation(nearbyTarget: CrackInteractionTarget | null = null): void {
+    const objective = {
+      label: getCracksObjectiveLabel(resolveCracksObjective(this.cracksFlowState, this.heldItem)),
+      target: resolveCracksObjectiveTarget(this.cracksFlowState, this.heldItem),
+    };
+    const prompt = getCracksInteractionPrompt(this.cracksFlowState, this.heldItem, nearbyTarget);
+
+    this.interactionPrompt?.setVisible(Boolean(prompt));
+    this.interactionPrompt?.setText(prompt ?? '');
+    this.objectiveBanner?.setText(objective.label);
+
+    if (this.carriedItem && this.player) {
+      this.carriedItem.setVisible(this.heldItem !== null);
+
+      if (this.heldItem !== null) {
+        this.carriedItem.setTexture(ASSET_KEYS.repairPlate);
+        this.carriedItem.setPosition(this.player.x, this.player.y - 32);
+      }
+    }
+
+    this.refreshCrackVisuals(objective.target);
+
+    if (this.interactionStations) {
+      for (const [targetId, station] of Object.entries(this.interactionStations) as [CrackInteractionTarget, InteractionStation][]) {
+        const isObjective = targetId === objective.target;
+        const isHiddenCrackTarget = targetId !== CrackStationId.RepairPlateSupply && !shouldTrackCrackTarget(targetId, this.cracksFlowState);
+
+        station.actionIcon.setAlpha(isHiddenCrackTarget ? 0 : isObjective ? 1 : 0.82);
+
+        if (targetId === CrackStationId.RepairPlateSupply) {
+          station.actionIcon.setVisible(this.cracksFlowState.activeSiteId !== null);
+        }
+      }
+    }
+  }
+
+  private syncDebugState(step: MovementStep, nearbyTarget: CrackInteractionTarget | null = null): void {
+    const activeCrackStatus = getActiveCrackStatus(this.cracksFlowState);
+
     this.debugState = {
-      batteryTask: {
-        completed: this.batteryFlowState.completed,
-        machineState: this.batteryFlowState.machine,
-        objective: resolveBatteryObjective(this.batteryFlowState),
-      },
+      batteryTask: null,
       bounds: this.playBounds ? { ...this.playBounds } : null,
+      cracksTask: {
+        activeSiteId: this.cracksFlowState.activeSiteId,
+        completedRepairs: this.cracksFlowState.completedRepairs,
+        objective: resolveCracksObjective(this.cracksFlowState, this.heldItem),
+        status: activeCrackStatus,
+        timeUntilBlockedMs:
+          this.cracksFlowState.timeUntilBlockedMs === null ? null : Math.ceil(this.cracksFlowState.timeUntilBlockedMs),
+        triggered: this.cracksFlowState.activeSiteId !== null,
+      },
       player: this.player
         ? {
-            canDash: canDashWithHeldItem(this.batteryFlowState.heldItem),
+            canDash: canDashWithHeldItem(this.heldItem),
             dashCooldownRemainingMs: Math.round(step.dashState.cooldownRemainingMs),
-            heldItem: this.batteryFlowState.heldItem,
+            heldItem: this.heldItem,
             isDashing: step.dashState.isDashing,
             isMoving: step.isMoving,
             nearbyTarget,
@@ -361,24 +413,40 @@ export class GameScene extends Phaser.Scene {
   }
 }
 
+function createCrackVisual(scene: Phaser.Scene, x: number, y: number): CrackVisual {
+  const sprite = scene.add.image(x, y, ASSET_KEYS.crackWarning).setDepth(3).setVisible(false);
+
+  return {
+    blocker: {
+      height: 70,
+      width: 148,
+      x: x - 74,
+      y: y - 35,
+    },
+    sprite,
+  };
+}
+
 function createStation(
   scene: Phaser.Scene,
   x: number,
   y: number,
   texture: string,
-  label: string,
+  label?: string,
 ): InteractionStation {
   const icon = scene.add.image(x, y, texture).setDepth(3);
 
-  scene.add
-    .text(x, y + 72, label, {
-      color: '#17324a',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-      fontSize: '14px',
-      fontStyle: 'bold',
-    })
-    .setDepth(3)
-    .setOrigin(0.5);
+  if (label) {
+    scene.add
+      .text(x, y + 72, label, {
+        color: '#17324a',
+        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontSize: '14px',
+        fontStyle: 'bold',
+      })
+      .setDepth(3)
+      .setOrigin(0.5);
+  }
 
   return {
     actionIcon: icon,
@@ -386,64 +454,86 @@ function createStation(
   };
 }
 
-function findNearbyStation(position: Point2, stations: InteractionStationMap): BatteryStationId | null {
-  let nearestStation: BatteryStationId | null = null;
+function findNearbyStation(
+  position: Point2,
+  stations: InteractionStationMap,
+  cracksFlowState: CracksFlowState,
+): CrackInteractionTarget | null {
+  let nearestStation: CrackInteractionTarget | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
 
-  for (const [stationId, station] of Object.entries(stations) as [BatteryStationId, InteractionStation][]) {
+  for (const [targetId, station] of Object.entries(stations) as [CrackInteractionTarget, InteractionStation][]) {
+    if (!isTargetEnabled(targetId, cracksFlowState)) {
+      continue;
+    }
+
     const distance = Phaser.Math.Distance.Between(position.x, position.y, station.targetPoint.x, station.targetPoint.y);
 
     if (distance > INTERACT_DISTANCE || distance >= nearestDistance) {
       continue;
     }
 
-    nearestStation = stationId;
+    nearestStation = targetId;
     nearestDistance = distance;
   }
 
   return nearestStation;
 }
 
-function getMachineTexture(machineState: BatteryFlowState['machine']): string {
-  switch (machineState) {
-    case BatteryMachineStateId.DeadInstalled:
-      return ASSET_KEYS.batteryMachineDead;
-    case BatteryMachineStateId.Empty:
-      return ASSET_KEYS.batteryMachineOpen;
-    case BatteryMachineStateId.FreshInstalled:
-      return ASSET_KEYS.batteryMachineFull;
+function getActiveCrackStatus(state: CracksFlowState): CrackStatus | null {
+  return state.activeSiteId ? state.sites[state.activeSiteId].status : null;
+}
+
+function getCrackStationId(siteId: CrackSite): CrackInteractionTarget {
+  return siteId === CrackSiteId.LeftLane ? CrackStationId.CrackLeft : CrackStationId.CrackRight;
+}
+
+function getCrackTexture(status: CrackStatus): string {
+  switch (status) {
+    case CrackStatusId.Warning:
+      return ASSET_KEYS.crackWarning;
+    case CrackStatusId.Blocked:
+      return ASSET_KEYS.crackBlocked;
+    case CrackStatusId.Patched:
+      return ASSET_KEYS.crackPatched;
+    case CrackStatusId.Idle:
+      return ASSET_KEYS.crackWarning;
   }
 }
 
-function getObjectiveLabel(objective: BatteryObjective): string {
+function getCracksObjectiveLabel(objective: CracksObjective): string {
   switch (objective) {
-    case BatteryObjectiveId.RemoveDeadBattery:
-      return 'Remove the dead battery';
-    case BatteryObjectiveId.DiscardDeadBattery:
-      return 'Discard the dead battery';
-    case BatteryObjectiveId.GrabFreshBattery:
-      return 'Take a fresh battery';
-    case BatteryObjectiveId.InstallFreshBattery:
-      return 'Install the fresh battery';
-    case BatteryObjectiveId.Complete:
-      return 'Battery restored';
+    case 'wait':
+      return 'Wait for the next structural crack';
+    case 'grab-repair-plate':
+      return 'Take a repair plate';
+    case 'repair-crack':
+      return 'Patch the structural crack';
   }
 }
 
-function renderBatteryRoom(
+function isTargetEnabled(target: CrackInteractionTarget, cracksFlowState: CracksFlowState): boolean {
+  if (target === CrackStationId.RepairPlateSupply) {
+    return cracksFlowState.activeSiteId !== null;
+  }
+
+  return shouldTrackCrackTarget(target, cracksFlowState);
+}
+
+function renderCracksSandbox(
   scene: Phaser.Scene,
   room: Phaser.Geom.Rectangle,
   walkArea: Phaser.Geom.Rectangle,
-): InteractionStationMap {
+): RenderedRoom {
   const backdrop = scene.add.graphics();
   const centerX = room.x + room.width / 2;
   const centerY = room.y + room.height / 2;
-  const machineX = centerX;
-  const machineY = room.y + 192;
-  const discardX = room.x + 164;
-  const discardY = room.y + room.height - 134;
-  const supplyX = room.x + room.width - 164;
-  const supplyY = room.y + room.height - 134;
+  const plateSupplyX = centerX;
+  const plateSupplyY = room.y + room.height - 140;
+  const crackLeftX = centerX - 146;
+  const crackLeftY = centerY + 24;
+  const crackRightX = centerX + 146;
+  const crackRightY = centerY + 24;
 
   backdrop.fillStyle(0xcaab83, 0.24);
   backdrop.fillRoundedRect(room.x + 10, room.y + 14, room.width, room.height, 34);
@@ -467,6 +557,10 @@ function renderBatteryRoom(
     backdrop.lineBetween(walkArea.x - 8, y, walkArea.x + walkArea.width + 8, y);
   }
 
+  backdrop.lineStyle(6, 0x17324a, 0.06);
+  backdrop.lineBetween(plateSupplyX, plateSupplyY - 54, crackLeftX, crackLeftY + 32);
+  backdrop.lineBetween(plateSupplyX, plateSupplyY - 54, crackRightX, crackRightY + 32);
+
   scene.add.image(centerX, centerY, ASSET_KEYS.emblem).setDepth(1).setAlpha(0.06).setScale(1.14);
   scene.add.rectangle(centerX, centerY, 156, 156, 0xffffff, 0.22).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
   scene.add.rectangle(centerX, centerY, 88, 88, 0xffffff, 0.28).setDepth(1).setStrokeStyle(2, 0x27455d, 0.1);
@@ -482,17 +576,41 @@ function renderBatteryRoom(
     .setDepth(4)
     .setOrigin(0.5);
 
-  const machine = createStation(scene, machineX, machineY, ASSET_KEYS.batteryMachineDead, 'Main socket');
-  const discardBin = createStation(scene, discardX, discardY, ASSET_KEYS.discardBin, 'Discard bin');
-  const batterySupply = createStation(scene, supplyX, supplyY, ASSET_KEYS.batterySupply, 'Fresh batteries');
+  const crackLeft = createCrackVisual(scene, crackLeftX, crackLeftY);
+  const crackRight = createCrackVisual(scene, crackRightX, crackRightY);
+  const repairPlateSupply = createStation(scene, plateSupplyX, plateSupplyY, ASSET_KEYS.repairPlateSupply, 'Repair plates');
 
   return {
-    [BatteryStation.BatterySupply]: batterySupply,
-    [BatteryStation.DiscardBin]: discardBin,
-    [BatteryStation.Machine]: machine,
+    crackVisuals: {
+      [CrackSiteId.LeftLane]: crackLeft,
+      [CrackSiteId.RightLane]: crackRight,
+    },
+    stations: {
+      [CrackStationId.CrackLeft]: {
+        actionIcon: crackLeft.sprite,
+        targetPoint: { x: crackLeftX, y: crackLeftY },
+      },
+      [CrackStationId.CrackRight]: {
+        actionIcon: crackRight.sprite,
+        targetPoint: { x: crackRightX, y: crackRightY },
+      },
+      [CrackStationId.RepairPlateSupply]: repairPlateSupply,
+    },
   };
 }
 
 function roundTo(value: number): number {
   return Math.round(value * 100) / 100;
+}
+
+function shouldTrackCrackTarget(target: CrackInteractionTarget, cracksFlowState: CracksFlowState): boolean {
+  const siteId = target === CrackStationId.CrackLeft ? CrackSiteId.LeftLane : target === CrackStationId.CrackRight ? CrackSiteId.RightLane : null;
+
+  if (siteId === null) {
+    return false;
+  }
+
+  const status = cracksFlowState.sites[siteId].status;
+
+  return status === CrackStatusId.Warning || status === CrackStatusId.Blocked;
 }

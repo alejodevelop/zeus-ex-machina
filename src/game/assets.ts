@@ -6,7 +6,12 @@ export const ASSET_KEYS = {
   batteryMachineOpen: 'battery-machine-open',
   batterySupply: 'battery-supply',
   beacon: 'scaffold-beacon',
+  crackBlocked: 'crack-blocked',
+  crackPatched: 'crack-patched',
+  crackWarning: 'crack-warning',
   discardBin: 'discard-bin',
   emblem: 'scaffold-emblem',
   player: 'prototype-player',
+  repairPlate: 'repair-plate',
+  repairPlateSupply: 'repair-plate-supply',
 } as const;

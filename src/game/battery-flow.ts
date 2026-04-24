@@ -1,3 +1,5 @@
+import { HeldItemId, type HeldItem } from './maintenance-items';
+
 export const BatteryStation = {
   BatterySupply: 'battery-supply',
   DiscardBin: 'discard-bin',
@@ -5,13 +7,6 @@ export const BatteryStation = {
 } as const;
 
 export type BatteryStationId = (typeof BatteryStation)[keyof typeof BatteryStation];
-
-export const HeldItemId = {
-  DeadBattery: 'dead-battery',
-  FreshBattery: 'fresh-battery',
-} as const;
-
-export type HeldItem = (typeof HeldItemId)[keyof typeof HeldItemId] | null;
 
 export const BatteryMachineStateId = {
   DeadInstalled: 'dead-installed',
@@ -33,13 +28,13 @@ export type BatteryObjective = (typeof BatteryObjectiveId)[keyof typeof BatteryO
 
 export interface BatteryFlowState {
   completed: boolean;
-  heldItem: HeldItem;
   machine: BatteryMachineState;
 }
 
 export interface BatteryInteractionResult {
   action: 'discard' | 'install' | 'none' | 'remove' | 'take';
   changed: boolean;
+  nextHeldItem: HeldItem;
   nextState: BatteryFlowState;
   objective: BatteryObjective;
   objectiveTarget: BatteryStationId | null;
@@ -48,41 +43,36 @@ export interface BatteryInteractionResult {
 export function createBatteryFlowState(): BatteryFlowState {
   return {
     completed: false,
-    heldItem: null,
     machine: BatteryMachineStateId.DeadInstalled,
   };
 }
 
-export function canDashWithHeldItem(heldItem: HeldItem): boolean {
-  return heldItem === null;
-}
-
-export function resolveBatteryObjective(state: BatteryFlowState): BatteryObjective {
+export function resolveBatteryObjective(state: BatteryFlowState, heldItem: HeldItem): BatteryObjective {
   if (state.completed || state.machine === BatteryMachineStateId.FreshInstalled) {
     return BatteryObjectiveId.Complete;
   }
 
-  if (state.machine === BatteryMachineStateId.DeadInstalled && state.heldItem === null) {
+  if (state.machine === BatteryMachineStateId.DeadInstalled && heldItem === null) {
     return BatteryObjectiveId.RemoveDeadBattery;
   }
 
-  if (state.heldItem === HeldItemId.DeadBattery) {
+  if (heldItem === HeldItemId.DeadBattery) {
     return BatteryObjectiveId.DiscardDeadBattery;
   }
 
-  if (state.machine === BatteryMachineStateId.Empty && state.heldItem === null) {
+  if (state.machine === BatteryMachineStateId.Empty && heldItem === null) {
     return BatteryObjectiveId.GrabFreshBattery;
   }
 
-  if (state.machine === BatteryMachineStateId.Empty && state.heldItem === HeldItemId.FreshBattery) {
+  if (state.machine === BatteryMachineStateId.Empty && heldItem === HeldItemId.FreshBattery) {
     return BatteryObjectiveId.InstallFreshBattery;
   }
 
   return BatteryObjectiveId.RemoveDeadBattery;
 }
 
-export function resolveBatteryObjectiveTarget(state: BatteryFlowState): BatteryStationId | null {
-  const objective = resolveBatteryObjective(state);
+export function resolveBatteryObjectiveTarget(state: BatteryFlowState, heldItem: HeldItem): BatteryStationId | null {
+  const objective = resolveBatteryObjective(state, heldItem);
 
   switch (objective) {
     case BatteryObjectiveId.RemoveDeadBattery:
@@ -99,25 +89,26 @@ export function resolveBatteryObjectiveTarget(state: BatteryFlowState): BatteryS
 
 export function getBatteryInteractionPrompt(
   state: BatteryFlowState,
+  heldItem: HeldItem,
   target: BatteryStationId | null,
 ): string | null {
   if (target === null) {
     return null;
   }
 
-  if (target === BatteryStation.Machine && state.machine === BatteryMachineStateId.DeadInstalled && state.heldItem === null) {
+  if (target === BatteryStation.Machine && state.machine === BatteryMachineStateId.DeadInstalled && heldItem === null) {
     return 'E Remove';
   }
 
-  if (target === BatteryStation.DiscardBin && state.heldItem === HeldItemId.DeadBattery) {
+  if (target === BatteryStation.DiscardBin && heldItem === HeldItemId.DeadBattery) {
     return 'E Discard';
   }
 
-  if (target === BatteryStation.BatterySupply && state.machine === BatteryMachineStateId.Empty && state.heldItem === null) {
+  if (target === BatteryStation.BatterySupply && state.machine === BatteryMachineStateId.Empty && heldItem === null) {
     return 'E Take';
   }
 
-  if (target === BatteryStation.Machine && state.machine === BatteryMachineStateId.Empty && state.heldItem === HeldItemId.FreshBattery) {
+  if (target === BatteryStation.Machine && state.machine === BatteryMachineStateId.Empty && heldItem === HeldItemId.FreshBattery) {
     return 'E Install';
   }
 
@@ -126,35 +117,28 @@ export function getBatteryInteractionPrompt(
 
 export function resolveBatteryInteraction(
   state: BatteryFlowState,
+  heldItem: HeldItem,
   target: BatteryStationId | null,
 ): BatteryInteractionResult {
   const nextState: BatteryFlowState = {
     completed: state.completed,
-    heldItem: state.heldItem,
     machine: state.machine,
   };
   let action: BatteryInteractionResult['action'] = 'none';
+  let nextHeldItem = heldItem;
 
-  if (target === BatteryStation.Machine && nextState.machine === BatteryMachineStateId.DeadInstalled && nextState.heldItem === null) {
-    nextState.heldItem = HeldItemId.DeadBattery;
+  if (target === BatteryStation.Machine && nextState.machine === BatteryMachineStateId.DeadInstalled && nextHeldItem === null) {
+    nextHeldItem = HeldItemId.DeadBattery;
     nextState.machine = BatteryMachineStateId.Empty;
     action = 'remove';
-  } else if (target === BatteryStation.DiscardBin && nextState.heldItem === HeldItemId.DeadBattery) {
-    nextState.heldItem = null;
+  } else if (target === BatteryStation.DiscardBin && nextHeldItem === HeldItemId.DeadBattery) {
+    nextHeldItem = null;
     action = 'discard';
-  } else if (
-    target === BatteryStation.BatterySupply &&
-    nextState.machine === BatteryMachineStateId.Empty &&
-    nextState.heldItem === null
-  ) {
-    nextState.heldItem = HeldItemId.FreshBattery;
+  } else if (target === BatteryStation.BatterySupply && nextState.machine === BatteryMachineStateId.Empty && nextHeldItem === null) {
+    nextHeldItem = HeldItemId.FreshBattery;
     action = 'take';
-  } else if (
-    target === BatteryStation.Machine &&
-    nextState.machine === BatteryMachineStateId.Empty &&
-    nextState.heldItem === HeldItemId.FreshBattery
-  ) {
-    nextState.heldItem = null;
+  } else if (target === BatteryStation.Machine && nextState.machine === BatteryMachineStateId.Empty && nextHeldItem === HeldItemId.FreshBattery) {
+    nextHeldItem = null;
     nextState.machine = BatteryMachineStateId.FreshInstalled;
     nextState.completed = true;
     action = 'install';
@@ -163,8 +147,9 @@ export function resolveBatteryInteraction(
   return {
     action,
     changed: action !== 'none',
+    nextHeldItem,
     nextState,
-    objective: resolveBatteryObjective(nextState),
-    objectiveTarget: resolveBatteryObjectiveTarget(nextState),
+    objective: resolveBatteryObjective(nextState, nextHeldItem),
+    objectiveTarget: resolveBatteryObjectiveTarget(nextState, nextHeldItem),
   };
 }

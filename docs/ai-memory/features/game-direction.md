@@ -20,10 +20,12 @@
 ## Decisions
 - Target feel is Overcooked-like urgency and prioritization, but expressed through machine maintenance and emergency response.
 - Carrying an object should disable dash so dash stays useful for reaching emergencies without trivializing transport.
+- Prototype each maintenance mechanic in its own isolated sandbox room first, then combine validated mechanics later during level design.
 
 ## Current State
 - `Battery replacement` is now the first implemented maintenance slice.
-- The repo currently contains the movement, dash, and battery-replacement prototype foundation for the maintenance direction.
+- `Cracks` is now the active focused sandbox in `GameScene`.
+- The repo currently contains the movement, dash, battery, and cracks prototype foundation for the maintenance direction.
 
 ## Follow-ups
-- Layer additional alert types on top of the battery slice pattern instead of replacing the existing carry-and-station loop.
+- Continue validating each future alert type in a one-mechanic room before combining them into final shift layouts.
