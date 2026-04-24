@@ -1,18 +1,18 @@
 import Phaser from 'phaser';
 
+import type { GameDebugGameplayState } from '../../agent/debug';
 import { ASSET_KEYS } from '../assets';
-import { advancePosition, type MovementBounds, type MovementInputState } from '../movement';
+import {
+  advancePosition,
+  createDashState,
+  type DashState,
+  type MovementBounds,
+  type MovementInputState,
+  type MovementStep,
+} from '../movement';
 import { SceneKey } from './scene-keys';
 
-interface GameSceneDebugState {
-  bounds: MovementBounds | null;
-  player: {
-    isMoving: boolean;
-    x: number;
-    y: number;
-  } | null;
-  ready: boolean;
-}
+type GameSceneDebugState = GameDebugGameplayState;
 
 type MovementKeyMap = Record<'down' | 'left' | 'right' | 'up', Phaser.Input.Keyboard.Key>;
 
@@ -21,6 +21,8 @@ const PLAYER_SPEED = 240;
 
 export class GameScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
+  private dashQueued = false;
+  private dashState: DashState = createDashState();
   private debugState: GameSceneDebugState = {
     bounds: null,
     player: null,
@@ -47,6 +49,9 @@ export class GameScene extends Phaser.Scene {
 
     this.leaving = false;
     this.cursors = this.input.keyboard?.createCursorKeys();
+    this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
+    this.dashQueued = false;
+    this.dashState = createDashState();
     this.movementKeys = this.input.keyboard?.addKeys({
       down: Phaser.Input.Keyboard.KeyCodes.S,
       left: Phaser.Input.Keyboard.KeyCodes.A,
@@ -68,45 +73,26 @@ export class GameScene extends Phaser.Scene {
     this.playerShadow = this.add.ellipse(spawnPoint.x, spawnPoint.y + 18, 44, 18, 0x31190c, 0.16).setDepth(4);
     this.player = this.add.image(spawnPoint.x, spawnPoint.y, ASSET_KEYS.player).setDepth(5);
 
-    const backButton = this.add
-      .text(room.x + room.width - 28, room.y + 28, 'Menu [Esc]', {
-        backgroundColor: '#17324a',
-        color: '#fff9f0',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-        fontSize: '16px',
-        fontStyle: 'bold',
-        padding: { bottom: 10, left: 16, right: 16, top: 10 },
-      })
-      .setDepth(10)
-      .setOrigin(1, 0.5)
-      .setInteractive({ useHandCursor: true });
-
-    backButton.on('pointerover', () => {
-      backButton.setStyle({
-        backgroundColor: '#274864',
-        color: '#fff3dc',
-      });
-    });
-
-    backButton.on('pointerout', () => {
-      backButton.setStyle({
-        backgroundColor: '#17324a',
-        color: '#fff9f0',
-      });
-    });
-
-    backButton.on('pointerup', () => {
-      this.leaveToMenu();
-    });
-
     this.input.keyboard?.once('keydown-ESC', () => {
       this.leaveToMenu();
     });
     this.input.keyboard?.once('keydown-M', () => {
       this.leaveToMenu();
     });
+    this.input.keyboard?.on('keydown-SHIFT', this.queueDash, this);
 
-    this.syncDebugState(false);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off('keydown-SHIFT', this.queueDash, this);
+    });
+
+    this.syncDebugState({
+      dashState: this.dashState,
+      dashTriggered: false,
+      direction: { x: 0, y: 0 },
+      isMoving: false,
+      nextPosition: spawnPoint,
+      velocity: { x: 0, y: 0 },
+    });
   }
 
   public update(_time: number, delta: number): void {
@@ -120,13 +106,16 @@ export class GameScene extends Phaser.Scene {
       PLAYER_SPEED,
       delta,
       this.playBounds,
+      this.dashState,
     );
 
+    this.dashState = step.dashState;
     this.player.setPosition(step.nextPosition.x, step.nextPosition.y);
-    this.player.setScale(step.isMoving ? 1.02 : 1);
+    this.player.setScale(step.dashState.isDashing ? 1.12 : step.isMoving ? 1.02 : 1);
     this.playerShadow?.setPosition(step.nextPosition.x, step.nextPosition.y + 18);
-    this.playerShadow?.setAlpha(step.isMoving ? 0.22 : 0.16);
-    this.syncDebugState(step.isMoving);
+    this.playerShadow?.setScale(step.dashState.isDashing ? 1.18 : 1, step.dashState.isDashing ? 0.84 : 1);
+    this.playerShadow?.setAlpha(step.dashState.isDashing ? 0.28 : step.isMoving ? 0.22 : 0.16);
+    this.syncDebugState(step);
   }
 
   public getDebugState(): GameSceneDebugState {
@@ -155,6 +144,7 @@ export class GameScene extends Phaser.Scene {
 
   private readMovementInput(): MovementInputState {
     return {
+      dashPressed: this.consumeDashQueue(),
       down: Boolean(this.cursors?.down.isDown || this.movementKeys?.down.isDown),
       left: Boolean(this.cursors?.left.isDown || this.movementKeys?.left.isDown),
       right: Boolean(this.cursors?.right.isDown || this.movementKeys?.right.isDown),
@@ -162,18 +152,36 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private syncDebugState(isMoving: boolean): void {
+  private syncDebugState(step: MovementStep): void {
     this.debugState = {
       bounds: this.playBounds ? { ...this.playBounds } : null,
       player: this.player
         ? {
-            isMoving,
+            dashCooldownRemainingMs: Math.round(step.dashState.cooldownRemainingMs),
+            isDashing: step.dashState.isDashing,
+            isMoving: step.isMoving,
             x: roundTo(this.player.x),
             y: roundTo(this.player.y),
           }
         : null,
       ready: Boolean(this.player && this.playBounds),
     };
+  }
+
+  private consumeDashQueue(): boolean {
+    const dashPressed = this.dashQueued;
+
+    this.dashQueued = false;
+
+    return dashPressed;
+  }
+
+  private queueDash(event: KeyboardEvent): void {
+    if (event.repeat) {
+      return;
+    }
+
+    this.dashQueued = true;
   }
 }
 
@@ -211,26 +219,7 @@ function renderPrototypeRoom(scene: Phaser.Scene, room: Phaser.Geom.Rectangle, w
   scene.add.rectangle(centerX, centerY, 88, 88, 0xffffff, 0.28).setDepth(1).setStrokeStyle(2, 0x27455d, 0.1);
 
   scene.add
-    .text(room.x + 34, room.y + 30, 'MOVEMENT PROTOTYPE', {
-      color: '#17324a',
-      fontFamily: 'Palatino Linotype, Book Antiqua, Georgia, serif',
-      fontSize: '34px',
-      fontStyle: 'bold',
-    })
-    .setDepth(2)
-    .setOrigin(0, 0.5);
-
-  scene.add
-    .text(room.x + 34, room.y + 62, 'Single screen, top-down camera, free movement in X and Y.', {
-      color: '#5d6f7c',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-      fontSize: '16px',
-    })
-    .setDepth(2)
-    .setOrigin(0, 0.5);
-
-  scene.add
-    .text(room.x + room.width / 2, room.y + 30, 'WASD or arrow keys', {
+    .text(room.x + room.width / 2, room.y + 36, 'WASD or arrow keys  •  Shift to dash', {
       backgroundColor: '#fff5e7',
       color: '#8b5b34',
       fontFamily: 'Trebuchet MS, Verdana, sans-serif',
@@ -240,15 +229,6 @@ function renderPrototypeRoom(scene: Phaser.Scene, room: Phaser.Geom.Rectangle, w
     })
     .setDepth(2)
     .setOrigin(0.5);
-
-  scene.add
-    .text(room.x + 34, room.y + room.height - 28, 'Current scope: move freely inside a single room.', {
-      color: '#6a7b88',
-      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-      fontSize: '14px',
-    })
-    .setDepth(2)
-    .setOrigin(0, 0.5);
 }
 
 function roundTo(value: number): number {

@@ -2,6 +2,25 @@ import Phaser from 'phaser';
 
 import type { AgentLaunchOptions } from './launch-options';
 
+export interface GameDebugGameplayPlayerState {
+  dashCooldownRemainingMs: number;
+  isDashing: boolean;
+  isMoving: boolean;
+  x: number;
+  y: number;
+}
+
+export interface GameDebugGameplayState {
+  bounds: {
+    maxX: number;
+    maxY: number;
+    minX: number;
+    minY: number;
+  } | null;
+  player: GameDebugGameplayPlayerState | null;
+  ready: boolean;
+}
+
 export interface GameDebugSnapshot {
   activeScene: string | null;
   activeScenes: string[];
@@ -18,20 +37,7 @@ export interface GameDebugSnapshot {
       x: number;
       y: number;
     } | null;
-  gameplay: {
-    bounds: {
-      maxX: number;
-      maxY: number;
-      minX: number;
-      minY: number;
-    } | null;
-    player: {
-      isMoving: boolean;
-      x: number;
-      y: number;
-    } | null;
-    ready: boolean;
-  } | null;
+  gameplay: GameDebugGameplayState | null;
 }
 
 interface GameDebugController {

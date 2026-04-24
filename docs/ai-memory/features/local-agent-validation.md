@@ -12,7 +12,7 @@
 - `src/main.ts` - installs the dev-only game debug bridge alongside the Phaser game instance.
 - `src/agent/launch-options.ts` - parses agent-specific URL flags.
 - `src/agent/session.ts` - exports the parsed browser session options.
-- `src/agent/debug.ts` - decorates the canvas with `data-testid="game-canvas"`, exposes `window.__gameDebug`, surfaces scene-provided gameplay snapshots, and mounts the optional HUD with automation-friendly `data-testid` values.
+- `src/agent/debug.ts` - decorates the canvas with `data-testid="game-canvas"`, exposes `window.__gameDebug`, surfaces scene-provided gameplay snapshots including per-scene gameplay state, and mounts the optional HUD with automation-friendly `data-testid` values.
 - `src/agent/launch-options.test.ts` - covers the query flag parsing rules.
 - `src/game/scenes/PreloadScene.ts` - honors the optional local start-scene shortcut.
 - `src/styles.css` - styles the local HUD.
