@@ -36,6 +36,22 @@ export class BootScene extends Phaser.Scene {
     graphics.strokeCircle(12, 12, 7);
     graphics.generateTexture(ASSET_KEYS.beacon, 24, 24);
 
+    graphics.clear();
+    graphics.fillStyle(0x17324a, 1);
+    graphics.fillRoundedRect(20, 26, 32, 26, 14);
+    graphics.fillStyle(0x2f7a7b, 1);
+    graphics.fillRoundedRect(24, 30, 24, 22, 10);
+    graphics.fillStyle(0xefc08b, 1);
+    graphics.fillCircle(36, 30, 11);
+    graphics.lineStyle(4, 0xffffff, 1);
+    graphics.strokeCircle(27, 18, 8);
+    graphics.strokeCircle(36, 14, 10);
+    graphics.strokeCircle(45, 18, 8);
+    graphics.lineStyle(3, 0xfff8ef, 1);
+    graphics.strokeRoundedRect(20, 26, 32, 26, 14);
+    graphics.strokeCircle(36, 30, 11);
+    graphics.generateTexture(ASSET_KEYS.player, 72, 72);
+
     graphics.destroy();
   }
 }

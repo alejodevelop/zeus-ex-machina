@@ -24,6 +24,7 @@ Cross-feature decisions and constraints that future work should preserve.
 - Scene order is defined centrally in `src/game/config.ts`: `BootScene` -> `PreloadScene` -> `MenuScene` -> `GameScene`.
 - `BootScene` owns runtime-generated placeholder textures and `PreloadScene` stays as the lightweight routing point where future external asset loading can be added.
 - Keep scene ids in `src/game/scenes/scene-keys.ts` and scaffold asset keys in `src/game/assets.ts` to avoid string drift.
+- Keep deterministic gameplay rules in plain modules under `src/game/` so scenes can expose Phaser wiring while Vitest covers movement and other logic in the `node` environment.
 
 ## Frame sizing
 
@@ -34,6 +35,7 @@ Cross-feature decisions and constraints that future work should preserve.
 
 - `vitest.config.ts` uses the `node` environment and includes `src/**/*.test.ts` only.
 - Put deterministic, non-Phaser-heavy logic in plain modules under `src/game/` or `src/game/utils/` so it can be unit tested without a browser runtime.
+- Time-based gameplay helpers should clamp unusually large frame deltas before applying movement so tab stalls do not create oversized simulation steps.
 
 ## Deployment target
 

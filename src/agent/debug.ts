@@ -14,9 +14,23 @@ export interface GameDebugSnapshot {
   };
   fps: number;
   pointer: {
-    isDown: boolean;
-    x: number;
-    y: number;
+      isDown: boolean;
+      x: number;
+      y: number;
+    } | null;
+  gameplay: {
+    bounds: {
+      maxX: number;
+      maxY: number;
+      minX: number;
+      minY: number;
+    } | null;
+    player: {
+      isMoving: boolean;
+      x: number;
+      y: number;
+    } | null;
+    ready: boolean;
   } | null;
 }
 
@@ -265,7 +279,20 @@ function readSnapshot(game: Phaser.Game): GameDebugSnapshot {
           y: Math.round(pointer.y),
         }
       : null,
+    gameplay: readGameplayDebugState(activeScene),
   };
+}
+
+function readGameplayDebugState(scene: Phaser.Scene | null): GameDebugSnapshot['gameplay'] {
+  const provider = scene as (Phaser.Scene & {
+    getDebugState?: () => GameDebugSnapshot['gameplay'];
+  }) | null;
+
+  if (!provider || typeof provider.getDebugState !== 'function') {
+    return null;
+  }
+
+  return provider.getDebugState();
 }
 
 function restartActiveScene(game: Phaser.Game): boolean {

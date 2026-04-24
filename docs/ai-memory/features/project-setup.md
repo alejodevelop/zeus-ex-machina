@@ -3,7 +3,7 @@
 ## Summary
 - The project is a browser game scaffold built with `Phaser`, `Vite`, strict `TypeScript`, `ESLint`, `Vitest`, and `pnpm`.
 - `src/main.ts` is the only browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
-- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is an intentional placeholder with no gameplay loop.
+- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is now the first playable movement prototype.
 
 ## Files
 - `package.json` - scripts, dependency versions, and pinned `pnpm@10.33.0` package manager.
@@ -15,13 +15,13 @@
 - `src/game/scenes/PreloadScene.ts` - lightweight routing scene that still leaves room for future static asset loading.
 - `src/game/scenes/scene-keys.ts` - canonical scene ids.
 - `src/game/scenes/MenuScene.ts` - minimal title screen that starts the placeholder scene on pointer or keyboard input.
-- `src/game/scenes/GameScene.ts` - placeholder scene with explicit return-to-menu controls.
+- `src/game/scenes/GameScene.ts` - first playable scene with bounded top-down movement and return-to-menu controls.
 - `src/styles.css` - shell styling around the fixed-aspect Phaser canvas.
 
 ## Decisions
 - Keep scene ids and scaffold asset keys centralized in `src/game/scenes/scene-keys.ts` and `src/game/assets.ts`.
 - Keep pure logic in plain modules under `src/game/` or `src/game/utils/` so it stays testable in Vitest's `node` environment.
-- Keep the current scaffold free of game-specific rules until the new concept is chosen.
+- Keep reusable gameplay rules in plain modules under `src/game/` so scene code can stay focused on Phaser wiring.
 - Keep `vite.config.ts` on `base: './'` so the built `dist/` bundle works from relative hosting targets like `itch.io` uploads.
 
 ## Errors and fixes
@@ -35,4 +35,4 @@
 
 ## Follow-ups
 - Treat `dist/` as the deployable bundle and `public/assets/` as the source for future runtime-loaded static assets.
-- Replace the placeholder `GameScene` only after the next game loop and required systems are defined.
+- Evolve `GameScene` from the movement prototype by layering interactions and content onto the existing scene flow.
