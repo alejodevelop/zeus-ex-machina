@@ -22,8 +22,8 @@
 - Carrying an object should disable dash so dash stays useful for reaching emergencies without trivializing transport.
 
 ## Current State
-- None of the maintenance systems are implemented yet.
-- The repo currently contains only the movement and dash prototype foundation.
+- `Battery replacement` is now the first implemented maintenance slice.
+- The repo currently contains the movement, dash, and battery-replacement prototype foundation for the maintenance direction.
 
 ## Follow-ups
-- Use `battery replacement` to define the first end-to-end alert, pickup, carry, and replace interaction loop before layering later hazards.
+- Layer additional alert types on top of the battery slice pattern instead of replacing the existing carry-and-station loop.

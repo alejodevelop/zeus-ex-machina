@@ -3,14 +3,24 @@ import Phaser from 'phaser';
 import type { AgentLaunchOptions } from './launch-options';
 
 export interface GameDebugGameplayPlayerState {
+  canDash: boolean;
   dashCooldownRemainingMs: number;
+  heldItem: 'dead-battery' | 'fresh-battery' | null;
   isDashing: boolean;
   isMoving: boolean;
+  nearbyTarget: 'battery-supply' | 'discard-bin' | 'machine' | null;
   x: number;
   y: number;
 }
 
+export interface GameDebugBatteryTaskState {
+  completed: boolean;
+  machineState: 'dead-installed' | 'empty' | 'fresh-installed';
+  objective: 'complete' | 'discard-dead-battery' | 'grab-fresh-battery' | 'install-fresh-battery' | 'remove-dead-battery';
+}
+
 export interface GameDebugGameplayState {
+  batteryTask: GameDebugBatteryTaskState | null;
   bounds: {
     maxX: number;
     maxY: number;
@@ -206,12 +216,15 @@ function createAgentHud(controller: GameDebugController): AgentHud {
       syncSceneButtons();
       sceneValue.textContent = snapshot.activeScene ?? 'none';
       fpsValue.textContent = `${Math.round(snapshot.fps)} fps`;
-      pointerValue.textContent = snapshot.pointer
-        ? `${snapshot.pointer.x}, ${snapshot.pointer.y}${snapshot.pointer.isDown ? ' down' : ''}`
-        : 'n/a';
+      pointerValue.textContent = snapshot.gameplay?.batteryTask
+        ? `${snapshot.gameplay.batteryTask.objective}${snapshot.gameplay.player?.heldItem ? ` | ${snapshot.gameplay.player.heldItem}` : ''}`
+        : snapshot.pointer
+            ? `${snapshot.pointer.x}, ${snapshot.pointer.y}${snapshot.pointer.isDown ? ' down' : ''}`
+            : 'n/a';
       canvasValue.textContent =
-        `${snapshot.canvas.clientWidth}x${snapshot.canvas.clientHeight} css | ` +
-        `${snapshot.canvas.backingWidth}x${snapshot.canvas.backingHeight} px`;
+        snapshot.gameplay?.player
+          ? `${snapshot.gameplay.player.nearbyTarget ?? 'free'} | dash ${snapshot.gameplay.player.canDash ? 'on' : 'off'}`
+          : `${snapshot.canvas.clientWidth}x${snapshot.canvas.clientHeight} css | ${snapshot.canvas.backingWidth}x${snapshot.canvas.backingHeight} px`;
     },
   };
 }
