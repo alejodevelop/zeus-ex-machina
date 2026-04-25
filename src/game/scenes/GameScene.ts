@@ -3,22 +3,22 @@ import Phaser from 'phaser';
 import type { GameDebugGameplayState } from '../../agent/debug';
 import { ASSET_KEYS } from '../assets';
 import {
-  CrackSiteId,
-  CrackStationId,
-  CrackStatusId,
-  DEFAULT_CRACKS_FLOW_CONFIG,
-  advanceCracksState,
-  createCracksFlowState,
-  getCracksInteractionPrompt,
-  resolveCracksInteraction,
-  resolveCracksObjective,
-  resolveCracksObjectiveTarget,
-  type CrackInteractionTarget,
-  type CrackSite,
-  type CrackStatus,
-  type CracksFlowState,
-  type CracksObjective,
-} from '../cracks-flow';
+  DEFAULT_OILING_FLOW_CONFIG,
+  GearId,
+  GearStatusId,
+  OilingStationId,
+  advanceOilingState,
+  createOilingFlowState,
+  getOilingInteractionPrompt,
+  resolveOilingInteraction,
+  resolveOilingObjective,
+  resolveOilingObjectiveTarget,
+  type Gear,
+  type GearStatus,
+  type OilingFlowState,
+  type OilingInteractionTarget,
+  type OilingObjective,
+} from '../oiling-flow';
 import { canDashWithHeldItem, type HeldItem } from '../maintenance-items';
 import {
   advancePosition,
@@ -29,26 +29,24 @@ import {
   type MovementStep,
   type Point2,
 } from '../movement';
-import { constrainPointToBlockers, type TraversalBlocker } from '../traversal-blockers';
 import { SceneKey } from './scene-keys';
 
 type GameSceneDebugState = GameDebugGameplayState;
-type InteractionStationMap = Record<CrackInteractionTarget, InteractionStation>;
+type GearVisualMap = Record<Gear, GearVisual>;
+type InteractionStationMap = Record<OilingInteractionTarget, InteractionStation>;
 type MovementKeyMap = Record<'down' | 'left' | 'right' | 'up', Phaser.Input.Keyboard.Key>;
-type CrackVisualMap = Record<CrackSite, CrackVisual>;
+
+interface GearVisual {
+  sprite: Phaser.GameObjects.Image;
+}
 
 interface InteractionStation {
   actionIcon: Phaser.GameObjects.Image;
   targetPoint: Point2;
 }
 
-interface CrackVisual {
-  blocker: TraversalBlocker;
-  sprite: Phaser.GameObjects.Image;
-}
-
 interface RenderedRoom {
-  crackVisuals: CrackVisualMap;
+  gearVisuals: GearVisualMap;
   stations: InteractionStationMap;
 }
 
@@ -57,9 +55,6 @@ const PLAYER_RADIUS = 24;
 const PLAYER_SPEED = 240;
 
 export class GameScene extends Phaser.Scene {
-  private carriedItem?: Phaser.GameObjects.Image;
-  private crackVisuals?: CrackVisualMap;
-  private cracksFlowState: CracksFlowState = createCracksFlowState(DEFAULT_CRACKS_FLOW_CONFIG);
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private dashQueued = false;
   private dashState: DashState = createDashState();
@@ -67,15 +62,18 @@ export class GameScene extends Phaser.Scene {
     batteryTask: null,
     bounds: null,
     cracksTask: null,
+    oilingTask: null,
     player: null,
     ready: false,
   };
+  private gearVisuals?: GearVisualMap;
   private heldItem: HeldItem = null;
   private interactionPrompt?: Phaser.GameObjects.Text;
   private interactionQueued = false;
   private interactionStations?: InteractionStationMap;
   private movementKeys?: MovementKeyMap;
   private objectiveBanner?: Phaser.GameObjects.Text;
+  private oilingFlowState: OilingFlowState = createOilingFlowState(DEFAULT_OILING_FLOW_CONFIG);
   private playBounds: MovementBounds | null = null;
   private player?: Phaser.GameObjects.Image;
   private playerShadow?: Phaser.GameObjects.Ellipse;
@@ -90,10 +88,10 @@ export class GameScene extends Phaser.Scene {
     const walkArea = new Phaser.Geom.Rectangle(room.x + 70, room.y + 96, room.width - 140, room.height - 182);
     const spawnPoint = {
       x: walkArea.x + walkArea.width / 2,
-      y: walkArea.y + walkArea.height - 10,
+      y: walkArea.y + walkArea.height - 12,
     };
 
-    this.cracksFlowState = createCracksFlowState(DEFAULT_CRACKS_FLOW_CONFIG);
+    this.oilingFlowState = createOilingFlowState(DEFAULT_OILING_FLOW_CONFIG);
     this.heldItem = null;
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
@@ -117,13 +115,12 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.fadeIn(260, 0, 0, 0);
     this.cameras.main.setBackgroundColor('#ead8bf');
 
-    const renderedRoom = renderCracksSandbox(this, room, walkArea);
+    const renderedRoom = renderOilingSandbox(this, room, walkArea);
 
     this.interactionStations = renderedRoom.stations;
-    this.crackVisuals = renderedRoom.crackVisuals;
+    this.gearVisuals = renderedRoom.gearVisuals;
     this.playerShadow = this.add.ellipse(spawnPoint.x, spawnPoint.y + 18, 44, 18, 0x31190c, 0.16).setDepth(6);
     this.player = this.add.image(spawnPoint.x, spawnPoint.y, ASSET_KEYS.player).setDepth(7);
-    this.carriedItem = this.add.image(spawnPoint.x, spawnPoint.y - 30, ASSET_KEYS.repairPlate).setDepth(8).setVisible(false);
     this.interactionPrompt = this.add
       .text(room.x + room.width / 2, room.y + room.height - 28, '', {
         backgroundColor: '#17324a',
@@ -171,12 +168,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     const previousPosition = { x: this.player.x, y: this.player.y };
-    const cracksAdvance = advanceCracksState(this.cracksFlowState, delta, DEFAULT_CRACKS_FLOW_CONFIG);
+    const oilingAdvance = advanceOilingState(this.oilingFlowState, delta, DEFAULT_OILING_FLOW_CONFIG);
 
-    this.cracksFlowState = cracksAdvance.nextState;
+    this.oilingFlowState = oilingAdvance.nextState;
 
-    if (cracksAdvance.crackTriggered || cracksAdvance.becameBlocked) {
-      this.cameras.main.shake(140, 0.0022);
+    if (oilingAdvance.gearTriggered || oilingAdvance.gearStartedGrinding) {
+      this.cameras.main.shake(140, 0.002);
     }
 
     const step = advancePosition(
@@ -187,67 +184,51 @@ export class GameScene extends Phaser.Scene {
       this.playBounds,
       this.dashState,
     );
-    const constrainedPosition = constrainPointToBlockers(
-      previousPosition,
-      step.nextPosition,
-      PLAYER_RADIUS,
-      this.getActiveBlockers(),
-    );
-    const adjustedStep: MovementStep = {
-      ...step,
-      isMoving: constrainedPosition.x !== previousPosition.x || constrainedPosition.y !== previousPosition.y,
-      nextPosition: constrainedPosition,
-    };
-    const nearbyTarget = findNearbyStation(constrainedPosition, this.interactionStations, this.cracksFlowState);
+    const nearbyTarget = findNearbyStation(step.nextPosition, this.interactionStations, this.oilingFlowState);
 
-    this.dashState = adjustedStep.dashState;
-    this.player.setPosition(adjustedStep.nextPosition.x, adjustedStep.nextPosition.y);
-    this.player.setScale(adjustedStep.dashState.isDashing ? 1.12 : adjustedStep.isMoving ? 1.02 : 1);
-    this.playerShadow?.setPosition(adjustedStep.nextPosition.x, adjustedStep.nextPosition.y + 18);
-    this.playerShadow?.setScale(adjustedStep.dashState.isDashing ? 1.18 : 1, adjustedStep.dashState.isDashing ? 0.84 : 1);
-    this.playerShadow?.setAlpha(adjustedStep.dashState.isDashing ? 0.28 : adjustedStep.isMoving ? 0.22 : 0.16);
+    this.dashState = step.dashState;
+    this.player.setPosition(step.nextPosition.x, step.nextPosition.y);
+    this.player.setScale(step.dashState.isDashing ? 1.12 : step.isMoving ? 1.02 : 1);
+    this.playerShadow?.setPosition(step.nextPosition.x, step.nextPosition.y + 18);
+    this.playerShadow?.setScale(step.dashState.isDashing ? 1.18 : 1, step.dashState.isDashing ? 0.84 : 1);
+    this.playerShadow?.setAlpha(step.dashState.isDashing ? 0.28 : step.isMoving ? 0.22 : 0.16);
 
     if (this.consumeInteractionQueue()) {
       this.applyInteraction(nearbyTarget);
     }
 
     this.refreshScenePresentation(nearbyTarget);
-    this.syncDebugState(adjustedStep, nearbyTarget);
+    this.syncDebugState(step, nearbyTarget);
   }
 
   public getDebugState(): GameSceneDebugState {
     return {
       batteryTask: null,
       bounds: this.debugState.bounds ? { ...this.debugState.bounds } : null,
-      cracksTask: this.debugState.cracksTask ? { ...this.debugState.cracksTask } : null,
+      cracksTask: null,
+      oilingTask: this.debugState.oilingTask ? { ...this.debugState.oilingTask } : null,
       player: this.debugState.player ? { ...this.debugState.player } : null,
       ready: this.debugState.ready,
     };
   }
 
-  private applyInteraction(target: CrackInteractionTarget | null): void {
-    const interaction = resolveCracksInteraction(this.cracksFlowState, this.heldItem, target, DEFAULT_CRACKS_FLOW_CONFIG);
+  private applyInteraction(target: OilingInteractionTarget | null): void {
+    const servicedGearId = this.oilingFlowState.activeGearId;
+    const interaction = resolveOilingInteraction(this.oilingFlowState, target, DEFAULT_OILING_FLOW_CONFIG);
 
     if (!interaction.changed) {
       return;
     }
 
-    this.cracksFlowState = interaction.nextState;
-    this.heldItem = interaction.nextHeldItem;
+    this.oilingFlowState = interaction.nextState;
 
-    if (interaction.action === 'repair') {
-      const repairedSite = this.findPatchedSite();
-
-      if (repairedSite && this.crackVisuals) {
-        this.tweens.add({
-          duration: 180,
-          ease: 'Sine.Out',
-          scaleX: 1.08,
-          scaleY: 1.08,
-          targets: this.crackVisuals[repairedSite].sprite,
-          yoyo: true,
-        });
-      }
+    if (interaction.action === 'oil' && servicedGearId && this.gearVisuals) {
+      this.tweens.add({
+        angle: 180,
+        duration: 260,
+        ease: 'Sine.Out',
+        targets: this.gearVisuals[servicedGearId].sprite,
+      });
     }
   }
 
@@ -265,26 +246,6 @@ export class GameScene extends Phaser.Scene {
     this.interactionQueued = false;
 
     return interactionQueued;
-  }
-
-  private findPatchedSite(): CrackSite | null {
-    for (const siteId of [CrackSiteId.LeftLane, CrackSiteId.RightLane]) {
-      if (this.cracksFlowState.sites[siteId].status === CrackStatusId.Patched) {
-        return siteId;
-      }
-    }
-
-    return null;
-  }
-
-  private getActiveBlockers(): TraversalBlocker[] {
-    if (!this.crackVisuals) {
-      return [];
-    }
-
-    return (Object.entries(this.crackVisuals) as [CrackSite, CrackVisual][])
-      .filter(([siteId]) => this.cracksFlowState.sites[siteId].status === CrackStatusId.Blocked)
-      .map(([, crackVisual]) => crackVisual.blocker);
   }
 
   private queueDash(event: KeyboardEvent): void {
@@ -319,82 +280,67 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private refreshCrackVisuals(objectiveTarget: CrackInteractionTarget | null): void {
-    if (!this.crackVisuals) {
+  private refreshGearVisuals(objectiveTarget: OilingInteractionTarget | null): void {
+    if (!this.gearVisuals) {
       return;
     }
 
-    for (const [siteId, crackVisual] of Object.entries(this.crackVisuals) as [CrackSite, CrackVisual][]) {
-      const status = this.cracksFlowState.sites[siteId].status;
+    for (const [gearId, gearVisual] of Object.entries(this.gearVisuals) as [Gear, GearVisual][]) {
+      const status = this.oilingFlowState.gears[gearId].status;
 
-      if (status === CrackStatusId.Idle) {
-        crackVisual.sprite.setVisible(false);
+      gearVisual.sprite.setTexture(getGearTexture(status));
+      gearVisual.sprite.setScale(objectiveTarget === getGearTarget(gearId) ? 1.06 : 1);
+      gearVisual.sprite.setAlpha(status === GearStatusId.Healthy ? 0.86 : 1);
 
-        continue;
-      }
-
-      crackVisual.sprite.setVisible(true);
-      crackVisual.sprite.setTexture(getCrackTexture(status));
-      crackVisual.sprite.setScale(objectiveTarget === getCrackStationId(siteId) ? 1.06 : 1);
-
-      if (status === CrackStatusId.Warning) {
-        crackVisual.sprite.setAlpha(0.72 + Math.sin(this.time.now / 120) * 0.16);
+      if (status === GearStatusId.NeedsOil) {
+        gearVisual.sprite.setAngle(Math.sin(this.time.now / 170) * 3);
+      } else if (status === GearStatusId.Grinding) {
+        gearVisual.sprite.setAngle(Math.sin(this.time.now / 90) * 7);
       } else {
-        crackVisual.sprite.setAlpha(1);
+        gearVisual.sprite.setAngle(0);
       }
     }
   }
 
-  private refreshScenePresentation(nearbyTarget: CrackInteractionTarget | null = null): void {
+  private refreshScenePresentation(nearbyTarget: OilingInteractionTarget | null = null): void {
     const objective = {
-      label: getCracksObjectiveLabel(resolveCracksObjective(this.cracksFlowState, this.heldItem)),
-      target: resolveCracksObjectiveTarget(this.cracksFlowState, this.heldItem),
+      label: getOilingObjectiveLabel(resolveOilingObjective(this.oilingFlowState)),
+      target: resolveOilingObjectiveTarget(this.oilingFlowState),
     };
-    const prompt = getCracksInteractionPrompt(this.cracksFlowState, this.heldItem, nearbyTarget);
+    const prompt = getOilingInteractionPrompt(this.oilingFlowState, nearbyTarget);
 
     this.interactionPrompt?.setVisible(Boolean(prompt));
     this.interactionPrompt?.setText(prompt ?? '');
-    this.objectiveBanner?.setText(objective.label);
+    this.objectiveBanner?.setText(`${objective.label}  •  Oil ${this.oilingFlowState.oilCharges}/${this.oilingFlowState.maxOilCharges}`);
 
-    if (this.carriedItem && this.player) {
-      this.carriedItem.setVisible(this.heldItem !== null);
-
-      if (this.heldItem !== null) {
-        this.carriedItem.setTexture(ASSET_KEYS.repairPlate);
-        this.carriedItem.setPosition(this.player.x, this.player.y - 32);
-      }
-    }
-
-    this.refreshCrackVisuals(objective.target);
+    this.refreshGearVisuals(objective.target);
 
     if (this.interactionStations) {
-      for (const [targetId, station] of Object.entries(this.interactionStations) as [CrackInteractionTarget, InteractionStation][]) {
+      for (const [targetId, station] of Object.entries(this.interactionStations) as [OilingInteractionTarget, InteractionStation][]) {
         const isObjective = targetId === objective.target;
-        const isHiddenCrackTarget = targetId !== CrackStationId.RepairPlateSupply && !shouldTrackCrackTarget(targetId, this.cracksFlowState);
-
-        station.actionIcon.setAlpha(isHiddenCrackTarget ? 0 : isObjective ? 1 : 0.82);
-
-        if (targetId === CrackStationId.RepairPlateSupply) {
-          station.actionIcon.setVisible(this.cracksFlowState.activeSiteId !== null);
-        }
+        station.actionIcon.setAlpha(isObjective ? 1 : 0.84);
+        station.actionIcon.setScale(isObjective ? 1.05 : 1);
       }
     }
   }
 
-  private syncDebugState(step: MovementStep, nearbyTarget: CrackInteractionTarget | null = null): void {
-    const activeCrackStatus = getActiveCrackStatus(this.cracksFlowState);
+  private syncDebugState(step: MovementStep, nearbyTarget: OilingInteractionTarget | null = null): void {
+    const activeGearStatus = getActiveGearStatus(this.oilingFlowState);
 
     this.debugState = {
       batteryTask: null,
       bounds: this.playBounds ? { ...this.playBounds } : null,
-      cracksTask: {
-        activeSiteId: this.cracksFlowState.activeSiteId,
-        completedRepairs: this.cracksFlowState.completedRepairs,
-        objective: resolveCracksObjective(this.cracksFlowState, this.heldItem),
-        status: activeCrackStatus,
-        timeUntilBlockedMs:
-          this.cracksFlowState.timeUntilBlockedMs === null ? null : Math.ceil(this.cracksFlowState.timeUntilBlockedMs),
-        triggered: this.cracksFlowState.activeSiteId !== null,
+      cracksTask: null,
+      oilingTask: {
+        activeGearId: this.oilingFlowState.activeGearId,
+        completedServices: this.oilingFlowState.completedServices,
+        maxOilCharges: this.oilingFlowState.maxOilCharges,
+        objective: resolveOilingObjective(this.oilingFlowState),
+        oilCharges: this.oilingFlowState.oilCharges,
+        status: activeGearStatus,
+        timeUntilGrindingMs:
+          this.oilingFlowState.timeUntilGrindingMs === null ? null : Math.ceil(this.oilingFlowState.timeUntilGrindingMs),
+        triggered: this.oilingFlowState.activeGearId !== null,
       },
       player: this.player
         ? {
@@ -413,17 +359,9 @@ export class GameScene extends Phaser.Scene {
   }
 }
 
-function createCrackVisual(scene: Phaser.Scene, x: number, y: number): CrackVisual {
-  const sprite = scene.add.image(x, y, ASSET_KEYS.crackWarning).setDepth(3).setVisible(false);
-
+function createGearVisual(scene: Phaser.Scene, x: number, y: number): GearVisual {
   return {
-    blocker: {
-      height: 70,
-      width: 148,
-      x: x - 74,
-      y: y - 35,
-    },
-    sprite,
+    sprite: scene.add.image(x, y, ASSET_KEYS.gearHealthy).setDepth(3),
   };
 }
 
@@ -438,7 +376,7 @@ function createStation(
 
   if (label) {
     scene.add
-      .text(x, y + 72, label, {
+      .text(x, y + 78, label, {
         color: '#17324a',
         fontFamily: 'Trebuchet MS, Verdana, sans-serif',
         fontSize: '14px',
@@ -457,13 +395,13 @@ function createStation(
 function findNearbyStation(
   position: Point2,
   stations: InteractionStationMap,
-  cracksFlowState: CracksFlowState,
-): CrackInteractionTarget | null {
-  let nearestStation: CrackInteractionTarget | null = null;
+  oilingFlowState: OilingFlowState,
+): OilingInteractionTarget | null {
+  let nearestStation: OilingInteractionTarget | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
 
-  for (const [targetId, station] of Object.entries(stations) as [CrackInteractionTarget, InteractionStation][]) {
-    if (!isTargetEnabled(targetId, cracksFlowState)) {
+  for (const [targetId, station] of Object.entries(stations) as [OilingInteractionTarget, InteractionStation][]) {
+    if (!isTargetEnabled(targetId, oilingFlowState)) {
       continue;
     }
 
@@ -480,47 +418,52 @@ function findNearbyStation(
   return nearestStation;
 }
 
-function getActiveCrackStatus(state: CracksFlowState): CrackStatus | null {
-  return state.activeSiteId ? state.sites[state.activeSiteId].status : null;
+function getActiveGearStatus(state: OilingFlowState): GearStatus | null {
+  return state.activeGearId ? state.gears[state.activeGearId].status : null;
 }
 
-function getCrackStationId(siteId: CrackSite): CrackInteractionTarget {
-  return siteId === CrackSiteId.LeftLane ? CrackStationId.CrackLeft : CrackStationId.CrackRight;
-}
-
-function getCrackTexture(status: CrackStatus): string {
-  switch (status) {
-    case CrackStatusId.Warning:
-      return ASSET_KEYS.crackWarning;
-    case CrackStatusId.Blocked:
-      return ASSET_KEYS.crackBlocked;
-    case CrackStatusId.Patched:
-      return ASSET_KEYS.crackPatched;
-    case CrackStatusId.Idle:
-      return ASSET_KEYS.crackWarning;
+function getGearTarget(gearId: Gear | null): OilingInteractionTarget | null {
+  switch (gearId) {
+    case GearId.LeftGear:
+      return OilingStationId.GearLeft;
+    case GearId.RightGear:
+      return OilingStationId.GearRight;
+    case null:
+      return null;
   }
 }
 
-function getCracksObjectiveLabel(objective: CracksObjective): string {
+function getGearTexture(status: GearStatus): string {
+  switch (status) {
+    case GearStatusId.Healthy:
+      return ASSET_KEYS.gearHealthy;
+    case GearStatusId.NeedsOil:
+      return ASSET_KEYS.gearNeedsOil;
+    case GearStatusId.Grinding:
+      return ASSET_KEYS.gearGrinding;
+  }
+}
+
+function getOilingObjectiveLabel(objective: OilingObjective): string {
   switch (objective) {
     case 'wait':
-      return 'Wait for the next structural crack';
-    case 'grab-repair-plate':
-      return 'Take a repair plate';
-    case 'repair-crack':
-      return 'Patch the structural crack';
+      return 'Wait for the next dry gear';
+    case 'refill-oil':
+      return 'Refill at the oil pump';
+    case 'oil-gear':
+      return 'Oil the active gear';
   }
 }
 
-function isTargetEnabled(target: CrackInteractionTarget, cracksFlowState: CracksFlowState): boolean {
-  if (target === CrackStationId.RepairPlateSupply) {
-    return cracksFlowState.activeSiteId !== null;
+function isTargetEnabled(target: OilingInteractionTarget, oilingFlowState: OilingFlowState): boolean {
+  if (target === OilingStationId.OilPump) {
+    return true;
   }
 
-  return shouldTrackCrackTarget(target, cracksFlowState);
+  return oilingFlowState.activeGearId !== null && shouldTrackGearTarget(target, oilingFlowState);
 }
 
-function renderCracksSandbox(
+function renderOilingSandbox(
   scene: Phaser.Scene,
   room: Phaser.Geom.Rectangle,
   walkArea: Phaser.Geom.Rectangle,
@@ -528,12 +471,12 @@ function renderCracksSandbox(
   const backdrop = scene.add.graphics();
   const centerX = room.x + room.width / 2;
   const centerY = room.y + room.height / 2;
-  const plateSupplyX = centerX;
-  const plateSupplyY = room.y + room.height - 140;
-  const crackLeftX = centerX - 146;
-  const crackLeftY = centerY + 24;
-  const crackRightX = centerX + 146;
-  const crackRightY = centerY + 24;
+  const pumpX = room.x + room.width - 190;
+  const pumpY = room.y + room.height - 136;
+  const leftGearX = centerX - 116;
+  const leftGearY = centerY + 42;
+  const rightGearX = centerX + 116;
+  const rightGearY = centerY + 42;
 
   backdrop.fillStyle(0xcaab83, 0.24);
   backdrop.fillRoundedRect(room.x + 10, room.y + 14, room.width, room.height, 34);
@@ -558,12 +501,15 @@ function renderCracksSandbox(
   }
 
   backdrop.lineStyle(6, 0x17324a, 0.06);
-  backdrop.lineBetween(plateSupplyX, plateSupplyY - 54, crackLeftX, crackLeftY + 32);
-  backdrop.lineBetween(plateSupplyX, plateSupplyY - 54, crackRightX, crackRightY + 32);
+  backdrop.lineBetween(room.x + 124, room.y + room.height - 154, leftGearX, leftGearY + 52);
+  backdrop.lineBetween(pumpX - 36, pumpY - 72, rightGearX, rightGearY + 52);
+  backdrop.lineBetween(centerX, room.y + 124, centerX, room.y + room.height - 170);
 
   scene.add.image(centerX, centerY, ASSET_KEYS.emblem).setDepth(1).setAlpha(0.06).setScale(1.14);
   scene.add.rectangle(centerX, centerY, 156, 156, 0xffffff, 0.22).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
   scene.add.rectangle(centerX, centerY, 88, 88, 0xffffff, 0.28).setDepth(1).setStrokeStyle(2, 0x27455d, 0.1);
+  scene.add.circle(room.x + 132, room.y + room.height - 154, 34, 0xffffff, 0.16).setDepth(1).setStrokeStyle(3, 0x27455d, 0.08);
+  scene.add.circle(room.x + 132, room.y + room.height - 154, 16, 0xffffff, 0.2).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
   scene.add
     .text(room.x + room.width / 2, room.y + 36, 'WASD or arrow keys  •  Shift to dash  •  E interact', {
       backgroundColor: '#fff5e7',
@@ -576,25 +522,25 @@ function renderCracksSandbox(
     .setDepth(4)
     .setOrigin(0.5);
 
-  const crackLeft = createCrackVisual(scene, crackLeftX, crackLeftY);
-  const crackRight = createCrackVisual(scene, crackRightX, crackRightY);
-  const repairPlateSupply = createStation(scene, plateSupplyX, plateSupplyY, ASSET_KEYS.repairPlateSupply, 'Repair plates');
+  const leftGear = createGearVisual(scene, leftGearX, leftGearY);
+  const rightGear = createGearVisual(scene, rightGearX, rightGearY);
+  const oilPump = createStation(scene, pumpX, pumpY, ASSET_KEYS.oilPump, 'Oil pump');
 
   return {
-    crackVisuals: {
-      [CrackSiteId.LeftLane]: crackLeft,
-      [CrackSiteId.RightLane]: crackRight,
+    gearVisuals: {
+      [GearId.LeftGear]: leftGear,
+      [GearId.RightGear]: rightGear,
     },
     stations: {
-      [CrackStationId.CrackLeft]: {
-        actionIcon: crackLeft.sprite,
-        targetPoint: { x: crackLeftX, y: crackLeftY },
+      [OilingStationId.GearLeft]: {
+        actionIcon: leftGear.sprite,
+        targetPoint: { x: leftGearX, y: leftGearY },
       },
-      [CrackStationId.CrackRight]: {
-        actionIcon: crackRight.sprite,
-        targetPoint: { x: crackRightX, y: crackRightY },
+      [OilingStationId.GearRight]: {
+        actionIcon: rightGear.sprite,
+        targetPoint: { x: rightGearX, y: rightGearY },
       },
-      [CrackStationId.RepairPlateSupply]: repairPlateSupply,
+      [OilingStationId.OilPump]: oilPump,
     },
   };
 }
@@ -603,14 +549,12 @@ function roundTo(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function shouldTrackCrackTarget(target: CrackInteractionTarget, cracksFlowState: CracksFlowState): boolean {
-  const siteId = target === CrackStationId.CrackLeft ? CrackSiteId.LeftLane : target === CrackStationId.CrackRight ? CrackSiteId.RightLane : null;
+function shouldTrackGearTarget(target: OilingInteractionTarget, oilingFlowState: OilingFlowState): boolean {
+  const gearId = target === OilingStationId.GearLeft ? GearId.LeftGear : target === OilingStationId.GearRight ? GearId.RightGear : null;
 
-  if (siteId === null) {
+  if (gearId === null) {
     return false;
   }
 
-  const status = cracksFlowState.sites[siteId].status;
-
-  return status === CrackStatusId.Warning || status === CrackStatusId.Blocked;
+  return oilingFlowState.activeGearId === gearId;
 }

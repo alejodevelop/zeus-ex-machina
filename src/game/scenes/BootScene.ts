@@ -100,6 +100,22 @@ export class BootScene extends Phaser.Scene {
     drawPatchedCrack(graphics);
     graphics.generateTexture(ASSET_KEYS.crackPatched, 180, 120);
 
+    graphics.clear();
+    drawOilPump(graphics);
+    graphics.generateTexture(ASSET_KEYS.oilPump, 136, 112);
+
+    graphics.clear();
+    drawGear(graphics, 0x8294a0, 0x495864, 0xc6d1d7, 0x6e7f8a);
+    graphics.generateTexture(ASSET_KEYS.gearHealthy, 132, 132);
+
+    graphics.clear();
+    drawGear(graphics, 0xc4a44b, 0x7a5e1b, 0xffefb4, 0xa5812e);
+    graphics.generateTexture(ASSET_KEYS.gearNeedsOil, 132, 132);
+
+    graphics.clear();
+    drawGear(graphics, 0xbc7d4b, 0x6b3117, 0xf6d2b3, 0x8d4822);
+    graphics.generateTexture(ASSET_KEYS.gearGrinding, 132, 132);
+
     graphics.destroy();
   }
 }
@@ -251,4 +267,52 @@ function drawPatchedCrack(graphics: Phaser.GameObjects.Graphics): void {
   graphics.fillCircle(126, 46, 4);
   graphics.fillCircle(54, 66, 4);
   graphics.fillCircle(126, 66, 4);
+}
+
+function drawGear(
+  graphics: Phaser.GameObjects.Graphics,
+  fillColor: number,
+  lineColor: number,
+  centerColor: number,
+  toothColor: number,
+): void {
+  graphics.fillStyle(toothColor, 1);
+
+  for (let index = 0; index < 8; index += 1) {
+    const angle = (Math.PI * 2 * index) / 8;
+    const toothX = 66 + Math.cos(angle) * 44;
+    const toothY = 66 + Math.sin(angle) * 44;
+
+    graphics.fillCircle(toothX, toothY, 10);
+  }
+
+  graphics.fillStyle(fillColor, 1);
+  graphics.fillCircle(66, 66, 38);
+  graphics.lineStyle(4, lineColor, 1);
+  graphics.strokeCircle(66, 66, 38);
+  graphics.fillStyle(centerColor, 1);
+  graphics.fillCircle(66, 66, 14);
+  graphics.lineStyle(3, 0xffffff, 0.4);
+
+  for (let index = 0; index < 4; index += 1) {
+    const angle = (Math.PI * 2 * index) / 4;
+
+    graphics.lineBetween(66, 66, 66 + Math.cos(angle) * 28, 66 + Math.sin(angle) * 28);
+  }
+}
+
+function drawOilPump(graphics: Phaser.GameObjects.Graphics): void {
+  graphics.fillStyle(0x214865, 1);
+  graphics.fillRoundedRect(14, 10, 108, 92, 20);
+  graphics.lineStyle(3, 0xffffff, 0.18);
+  graphics.strokeRoundedRect(14, 10, 108, 92, 20);
+  graphics.fillStyle(0x3b708f, 1);
+  graphics.fillRoundedRect(28, 24, 44, 56, 10);
+  graphics.fillStyle(0xd9e6ed, 1);
+  graphics.fillRoundedRect(38, 32, 24, 18, 6);
+  graphics.fillStyle(0xe0c05a, 1);
+  graphics.fillRoundedRect(78, 34, 16, 48, 8);
+  graphics.fillStyle(0x7d8ea0, 1);
+  graphics.fillRoundedRect(94, 44, 12, 8, 4);
+  graphics.fillTriangle(104, 44, 122, 52, 104, 60);
 }

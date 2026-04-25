@@ -8,7 +8,17 @@ export interface GameDebugGameplayPlayerState {
   heldItem: 'dead-battery' | 'fresh-battery' | 'repair-plate' | null;
   isDashing: boolean;
   isMoving: boolean;
-  nearbyTarget: 'battery-supply' | 'crack-left' | 'crack-right' | 'discard-bin' | 'machine' | 'repair-plate-supply' | null;
+  nearbyTarget:
+    | 'battery-supply'
+    | 'crack-left'
+    | 'crack-right'
+    | 'discard-bin'
+    | 'gear-left'
+    | 'gear-right'
+    | 'machine'
+    | 'oil-pump'
+    | 'repair-plate-supply'
+    | null;
   x: number;
   y: number;
 }
@@ -28,6 +38,17 @@ export interface GameDebugCracksTaskState {
   triggered: boolean;
 }
 
+export interface GameDebugOilingTaskState {
+  activeGearId: 'left-gear' | 'right-gear' | null;
+  completedServices: number;
+  maxOilCharges: number;
+  objective: 'oil-gear' | 'refill-oil' | 'wait';
+  oilCharges: number;
+  status: 'grinding' | 'healthy' | 'needs-oil' | null;
+  timeUntilGrindingMs: number | null;
+  triggered: boolean;
+}
+
 export interface GameDebugGameplayState {
   batteryTask: GameDebugBatteryTaskState | null;
   bounds: {
@@ -37,6 +58,7 @@ export interface GameDebugGameplayState {
     minY: number;
   } | null;
   cracksTask: GameDebugCracksTaskState | null;
+  oilingTask: GameDebugOilingTaskState | null;
   player: GameDebugGameplayPlayerState | null;
   ready: boolean;
 }
@@ -226,11 +248,13 @@ function createAgentHud(controller: GameDebugController): AgentHud {
       syncSceneButtons();
       sceneValue.textContent = snapshot.activeScene ?? 'none';
       fpsValue.textContent = `${Math.round(snapshot.fps)} fps`;
-      pointerValue.textContent = snapshot.gameplay?.batteryTask
-        ? `${snapshot.gameplay.batteryTask.objective}${snapshot.gameplay.player?.heldItem ? ` | ${snapshot.gameplay.player.heldItem}` : ''}`
-        : snapshot.pointer
-            ? `${snapshot.pointer.x}, ${snapshot.pointer.y}${snapshot.pointer.isDown ? ' down' : ''}`
-            : 'n/a';
+      pointerValue.textContent = snapshot.gameplay?.oilingTask
+        ? `${snapshot.gameplay.oilingTask.objective} | oil ${snapshot.gameplay.oilingTask.oilCharges}/${snapshot.gameplay.oilingTask.maxOilCharges}`
+        : snapshot.gameplay?.batteryTask
+            ? `${snapshot.gameplay.batteryTask.objective}${snapshot.gameplay.player?.heldItem ? ` | ${snapshot.gameplay.player.heldItem}` : ''}`
+            : snapshot.pointer
+                ? `${snapshot.pointer.x}, ${snapshot.pointer.y}${snapshot.pointer.isDown ? ' down' : ''}`
+                : 'n/a';
       canvasValue.textContent =
         snapshot.gameplay?.player
           ? `${snapshot.gameplay.player.nearbyTarget ?? 'free'} | dash ${snapshot.gameplay.player.canDash ? 'on' : 'off'}`

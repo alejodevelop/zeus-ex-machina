@@ -11,7 +11,7 @@
 ## Planned Systems
 - Planned alert-driven failures are `battery replacement`, `cracks`, `oiling`, and `intelligence`.
 - `Battery replacement` is the first vertical slice because it best establishes the alert -> move -> carry -> replace loop.
-- Likely implementation order after batteries is `cracks`, then `oiling`, then `intelligence`.
+- Implemented maintenance slices now cover `battery replacement`, `cracks`, and `oiling`; `intelligence` remains the planned unfinished alert type.
 - `Cracks` can block traversal and are resolved by welding a plate over them.
 - `Battery replacement` removes depleted batteries and installs replacements.
 - `Oiling` lubricates moving parts such as gears.
@@ -24,8 +24,8 @@
 
 ## Current State
 - `Battery replacement` is now the first implemented maintenance slice.
-- `Cracks` is now the active focused sandbox in `GameScene`.
-- The repo currently contains the movement, dash, battery, and cracks prototype foundation for the maintenance direction.
+- `Oiling` is now the active focused sandbox in `GameScene`.
+- The repo currently contains the movement, dash, battery, cracks, and oiling prototype foundation for the maintenance direction.
 
 ## Follow-ups
 - Continue validating each future alert type in a one-mechanic room before combining them into final shift layouts.
