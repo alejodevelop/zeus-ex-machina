@@ -42,6 +42,11 @@ Cross-feature decisions and constraints that future work should preserve.
 - Build and validate each maintenance mechanic as an isolated sandbox in an otherwise empty room before combining mechanics during level design.
 - Keep reusable task logic in plain modules under `src/game/` so one sandbox can be swapped out of `GameScene` without deleting the mechanic's underlying systems.
 
+## Carried-item movement tradeoff
+
+- Reuse shared held-item ids in `src/game/maintenance-items.ts` across maintenance mechanics instead of scene-local carry enums.
+- Carrying a maintenance item should disable dash so transport remains a routing tradeoff rather than a faster version of traversal.
+
 ## Deployment target
 
 - `vite.config.ts` keeps `base: './'` so built asset URLs stay relative.

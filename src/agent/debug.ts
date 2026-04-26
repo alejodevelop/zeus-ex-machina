@@ -5,7 +5,7 @@ import type { AgentLaunchOptions } from './launch-options';
 export interface GameDebugGameplayPlayerState {
   canDash: boolean;
   dashCooldownRemainingMs: number;
-  heldItem: 'dead-battery' | 'fresh-battery' | 'repair-plate' | null;
+  heldItem: 'dead-battery' | 'fresh-battery' | 'memory-module-empty' | 'memory-module-ready' | 'repair-plate' | null;
   isDashing: boolean;
   isMoving: boolean;
   nearbyTarget:
@@ -15,7 +15,9 @@ export interface GameDebugGameplayPlayerState {
     | 'discard-bin'
     | 'gear-left'
     | 'gear-right'
+    | 'intelligence-station'
     | 'machine'
+    | 'main-computer'
     | 'oil-pump'
     | 'repair-plate-supply'
     | null;
@@ -49,6 +51,14 @@ export interface GameDebugOilingTaskState {
   triggered: boolean;
 }
 
+export interface GameDebugIntelligenceTaskState {
+  completed: boolean;
+  machineState: 'depleted-installed' | 'empty' | 'restored';
+  objective: 'complete' | 'install-module' | 'load-station' | 'remove-module' | 'take-ready-module' | 'wait-for-processing';
+  processingRemainingMs: number | null;
+  stationState: 'idle' | 'processing' | 'ready';
+}
+
 export interface GameDebugGameplayState {
   batteryTask: GameDebugBatteryTaskState | null;
   bounds: {
@@ -58,6 +68,7 @@ export interface GameDebugGameplayState {
     minY: number;
   } | null;
   cracksTask: GameDebugCracksTaskState | null;
+  intelligenceTask: GameDebugIntelligenceTaskState | null;
   oilingTask: GameDebugOilingTaskState | null;
   player: GameDebugGameplayPlayerState | null;
   ready: boolean;
@@ -248,8 +259,10 @@ function createAgentHud(controller: GameDebugController): AgentHud {
       syncSceneButtons();
       sceneValue.textContent = snapshot.activeScene ?? 'none';
       fpsValue.textContent = `${Math.round(snapshot.fps)} fps`;
-      pointerValue.textContent = snapshot.gameplay?.oilingTask
-        ? `${snapshot.gameplay.oilingTask.objective} | oil ${snapshot.gameplay.oilingTask.oilCharges}/${snapshot.gameplay.oilingTask.maxOilCharges}`
+      pointerValue.textContent = snapshot.gameplay?.intelligenceTask
+        ? `${snapshot.gameplay.intelligenceTask.objective} | ${snapshot.gameplay.intelligenceTask.stationState === 'processing' && snapshot.gameplay.intelligenceTask.processingRemainingMs !== null ? `${Math.ceil(snapshot.gameplay.intelligenceTask.processingRemainingMs / 1000)}s` : snapshot.gameplay.intelligenceTask.stationState}`
+        : snapshot.gameplay?.oilingTask
+            ? `${snapshot.gameplay.oilingTask.objective} | oil ${snapshot.gameplay.oilingTask.oilCharges}/${snapshot.gameplay.oilingTask.maxOilCharges}`
         : snapshot.gameplay?.batteryTask
             ? `${snapshot.gameplay.batteryTask.objective}${snapshot.gameplay.player?.heldItem ? ` | ${snapshot.gameplay.player.heldItem}` : ''}`
             : snapshot.pointer

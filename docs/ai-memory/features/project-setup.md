@@ -3,7 +3,7 @@
 ## Summary
 - The project is a browser game scaffold built with `Phaser`, `Vite`, strict `TypeScript`, `ESLint`, `Vitest`, and `pnpm`.
 - `src/main.ts` is the only browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
-- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is now the first playable movement prototype.
+- Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is the main playable sandbox scene.
 
 ## Files
 - `package.json` - scripts, dependency versions, and pinned `pnpm@10.33.0` package manager.
@@ -14,8 +14,8 @@
 - `src/game/scenes/BootScene.ts` - generates runtime placeholder textures before preload.
 - `src/game/scenes/PreloadScene.ts` - lightweight routing scene that still leaves room for future static asset loading.
 - `src/game/scenes/scene-keys.ts` - canonical scene ids.
-- `src/game/scenes/MenuScene.ts` - minimal title screen that starts the placeholder scene on pointer or keyboard input.
-- `src/game/scenes/GameScene.ts` - first playable scene with bounded top-down movement and return-to-menu controls.
+- `src/game/scenes/MenuScene.ts` - minimal title screen that starts the playable sandbox flow on pointer or keyboard input.
+- `src/game/scenes/GameScene.ts` - active playable sandbox scene for movement and current maintenance prototype wiring.
 - `src/styles.css` - shell styling around the fixed-aspect Phaser canvas.
 
 ## Decisions
@@ -35,4 +35,3 @@
 
 ## Follow-ups
 - Treat `dist/` as the deployable bundle and `public/assets/` as the source for future runtime-loaded static assets.
-- Evolve `GameScene` from the movement prototype by layering interactions and content onto the existing scene flow.

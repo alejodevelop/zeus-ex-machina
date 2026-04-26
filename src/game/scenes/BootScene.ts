@@ -105,6 +105,38 @@ export class BootScene extends Phaser.Scene {
     graphics.generateTexture(ASSET_KEYS.oilPump, 136, 112);
 
     graphics.clear();
+    drawMainComputer(graphics, 0x818e9a, 0x57616c, 0x8b5b34);
+    graphics.generateTexture(ASSET_KEYS.mainComputerDepleted, 156, 124);
+
+    graphics.clear();
+    drawMainComputer(graphics, 0xf2ebdf, 0x57616c, null);
+    graphics.generateTexture(ASSET_KEYS.mainComputerOpen, 156, 124);
+
+    graphics.clear();
+    drawMainComputer(graphics, 0x8dbf9a, 0x45634e, 0x8dbf9a);
+    graphics.generateTexture(ASSET_KEYS.mainComputerRestored, 156, 124);
+
+    graphics.clear();
+    drawIntelligenceStation(graphics, 0x536e8d, 0xc8d9e6, 0x69809a);
+    graphics.generateTexture(ASSET_KEYS.intelligenceStationIdle, 148, 118);
+
+    graphics.clear();
+    drawIntelligenceStation(graphics, 0xa67f3f, 0xffefb4, 0xbf944f);
+    graphics.generateTexture(ASSET_KEYS.intelligenceStationProcessing, 148, 118);
+
+    graphics.clear();
+    drawIntelligenceStation(graphics, 0x4e8a67, 0xdaf5df, 0x66a17e);
+    graphics.generateTexture(ASSET_KEYS.intelligenceStationReady, 148, 118);
+
+    graphics.clear();
+    drawMemoryModule(graphics, 0x7c8790, 0x4b545c, 0xd6dce1);
+    graphics.generateTexture(ASSET_KEYS.memoryModuleEmpty, 84, 54);
+
+    graphics.clear();
+    drawMemoryModule(graphics, 0xd6b45b, 0x7d5d19, 0xfff2c2);
+    graphics.generateTexture(ASSET_KEYS.memoryModuleReady, 84, 54);
+
+    graphics.clear();
     drawGear(graphics, 0x8294a0, 0x495864, 0xc6d1d7, 0x6e7f8a);
     graphics.generateTexture(ASSET_KEYS.gearHealthy, 132, 132);
 
@@ -315,4 +347,75 @@ function drawOilPump(graphics: Phaser.GameObjects.Graphics): void {
   graphics.fillStyle(0x7d8ea0, 1);
   graphics.fillRoundedRect(94, 44, 12, 8, 4);
   graphics.fillTriangle(104, 44, 122, 52, 104, 60);
+}
+
+function drawMainComputer(
+  graphics: Phaser.GameObjects.Graphics,
+  moduleColor: number,
+  lineColor: number,
+  glowColor: number | null,
+): void {
+  graphics.fillStyle(0x1b3148, 1);
+  graphics.fillRoundedRect(12, 10, 132, 104, 22);
+  graphics.lineStyle(4, 0xffffff, 0.14);
+  graphics.strokeRoundedRect(12, 10, 132, 104, 22);
+  graphics.fillStyle(0x294660, 1);
+  graphics.fillRoundedRect(26, 24, 104, 76, 16);
+  graphics.lineStyle(3, lineColor, 1);
+  graphics.strokeRoundedRect(26, 24, 104, 76, 16);
+  graphics.fillStyle(moduleColor, 1);
+  graphics.fillRoundedRect(58, 34, 40, 52, 10);
+  graphics.lineStyle(3, lineColor, 1);
+  graphics.strokeRoundedRect(58, 34, 40, 52, 10);
+  graphics.fillStyle(0xf0f4f7, 0.9);
+  graphics.fillRoundedRect(68, 26, 20, 12, 4);
+
+  if (glowColor !== null) {
+    graphics.fillStyle(glowColor, 1);
+    graphics.fillCircle(116, 44, 7);
+    graphics.fillCircle(116, 64, 7);
+  }
+}
+
+function drawIntelligenceStation(
+  graphics: Phaser.GameObjects.Graphics,
+  bodyColor: number,
+  coreColor: number,
+  accentColor: number,
+): void {
+  graphics.fillStyle(0x23374d, 1);
+  graphics.fillRoundedRect(10, 12, 128, 94, 20);
+  graphics.lineStyle(3, 0xffffff, 0.18);
+  graphics.strokeRoundedRect(10, 12, 128, 94, 20);
+  graphics.fillStyle(bodyColor, 1);
+  graphics.fillRoundedRect(24, 24, 100, 66, 14);
+  graphics.fillStyle(coreColor, 1);
+  graphics.fillRoundedRect(40, 34, 36, 44, 8);
+  graphics.fillStyle(accentColor, 1);
+  graphics.fillRoundedRect(86, 34, 22, 12, 6);
+  graphics.fillRoundedRect(86, 52, 22, 12, 6);
+  graphics.fillRoundedRect(86, 70, 22, 8, 4);
+  graphics.lineStyle(3, 0x2b455f, 1);
+  graphics.strokeRoundedRect(24, 24, 100, 66, 14);
+  graphics.strokeRoundedRect(40, 34, 36, 44, 8);
+}
+
+function drawMemoryModule(
+  graphics: Phaser.GameObjects.Graphics,
+  fillColor: number,
+  lineColor: number,
+  pinColor: number,
+): void {
+  graphics.fillStyle(fillColor, 1);
+  graphics.fillRoundedRect(10, 10, 64, 34, 8);
+  graphics.lineStyle(3, lineColor, 1);
+  graphics.strokeRoundedRect(10, 10, 64, 34, 8);
+  graphics.fillStyle(pinColor, 1);
+
+  for (let index = 0; index < 5; index += 1) {
+    graphics.fillRoundedRect(18 + index * 10, 40, 6, 10, 2);
+  }
+
+  graphics.fillStyle(0xffffff, 0.32);
+  graphics.fillRoundedRect(18, 16, 24, 8, 4);
 }

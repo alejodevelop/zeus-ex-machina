@@ -3,23 +3,23 @@ import Phaser from 'phaser';
 import type { GameDebugGameplayState } from '../../agent/debug';
 import { ASSET_KEYS } from '../assets';
 import {
-  DEFAULT_OILING_FLOW_CONFIG,
-  GearId,
-  GearStatusId,
-  OilingStationId,
-  advanceOilingState,
-  createOilingFlowState,
-  getOilingInteractionPrompt,
-  resolveOilingInteraction,
-  resolveOilingObjective,
-  resolveOilingObjectiveTarget,
-  type Gear,
-  type GearStatus,
-  type OilingFlowState,
-  type OilingInteractionTarget,
-  type OilingObjective,
-} from '../oiling-flow';
-import { canDashWithHeldItem, type HeldItem } from '../maintenance-items';
+  DEFAULT_INTELLIGENCE_FLOW_CONFIG,
+  IntelligenceMachineStateId,
+  IntelligenceStationId,
+  IntelligenceStationStateId,
+  advanceIntelligenceState,
+  createIntelligenceFlowState,
+  getIntelligenceInteractionPrompt,
+  resolveIntelligenceInteraction,
+  resolveIntelligenceObjective,
+  resolveIntelligenceObjectiveTarget,
+  type IntelligenceFlowState,
+  type IntelligenceInteractionTarget,
+  type IntelligenceMachineState,
+  type IntelligenceObjective,
+  type IntelligenceStationState,
+} from '../intelligence-flow';
+import { HeldItemId, canDashWithHeldItem, type HeldItem } from '../maintenance-items';
 import {
   advancePosition,
   createDashState,
@@ -32,21 +32,18 @@ import {
 import { SceneKey } from './scene-keys';
 
 type GameSceneDebugState = GameDebugGameplayState;
-type GearVisualMap = Record<Gear, GearVisual>;
-type InteractionStationMap = Record<OilingInteractionTarget, InteractionStation>;
+type InteractionStationMap = Record<IntelligenceInteractionTarget, InteractionStation>;
 type MovementKeyMap = Record<'down' | 'left' | 'right' | 'up', Phaser.Input.Keyboard.Key>;
-
-interface GearVisual {
-  sprite: Phaser.GameObjects.Image;
-}
 
 interface InteractionStation {
   actionIcon: Phaser.GameObjects.Image;
+  sprite: Phaser.GameObjects.Image;
   targetPoint: Point2;
 }
 
 interface RenderedRoom {
-  gearVisuals: GearVisualMap;
+  intelligenceStation: InteractionStation;
+  mainComputer: InteractionStation;
   stations: InteractionStationMap;
 }
 
@@ -55,6 +52,7 @@ const PLAYER_RADIUS = 24;
 const PLAYER_SPEED = 240;
 
 export class GameScene extends Phaser.Scene {
+  private carriedItem?: Phaser.GameObjects.Image;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private dashQueued = false;
   private dashState: DashState = createDashState();
@@ -62,21 +60,24 @@ export class GameScene extends Phaser.Scene {
     batteryTask: null,
     bounds: null,
     cracksTask: null,
+    intelligenceTask: null,
     oilingTask: null,
     player: null,
     ready: false,
   };
-  private gearVisuals?: GearVisualMap;
   private heldItem: HeldItem = null;
+  private intelligenceFlowState: IntelligenceFlowState = createIntelligenceFlowState();
+  private intelligenceStationVisual?: InteractionStation;
   private interactionPrompt?: Phaser.GameObjects.Text;
   private interactionQueued = false;
   private interactionStations?: InteractionStationMap;
+  private mainComputerVisual?: InteractionStation;
   private movementKeys?: MovementKeyMap;
   private objectiveBanner?: Phaser.GameObjects.Text;
-  private oilingFlowState: OilingFlowState = createOilingFlowState(DEFAULT_OILING_FLOW_CONFIG);
   private playBounds: MovementBounds | null = null;
   private player?: Phaser.GameObjects.Image;
   private playerShadow?: Phaser.GameObjects.Ellipse;
+  private statusBanner?: Phaser.GameObjects.Text;
 
   constructor() {
     super(SceneKey.Game);
@@ -91,7 +92,7 @@ export class GameScene extends Phaser.Scene {
       y: walkArea.y + walkArea.height - 12,
     };
 
-    this.oilingFlowState = createOilingFlowState(DEFAULT_OILING_FLOW_CONFIG);
+    this.intelligenceFlowState = createIntelligenceFlowState();
     this.heldItem = null;
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.SHIFT);
@@ -113,14 +114,16 @@ export class GameScene extends Phaser.Scene {
     };
 
     this.cameras.main.fadeIn(260, 0, 0, 0);
-    this.cameras.main.setBackgroundColor('#ead8bf');
+    this.cameras.main.setBackgroundColor('#e5d7c0');
 
-    const renderedRoom = renderOilingSandbox(this, room, walkArea);
+    const renderedRoom = renderIntelligenceSandbox(this, room, walkArea);
 
     this.interactionStations = renderedRoom.stations;
-    this.gearVisuals = renderedRoom.gearVisuals;
+    this.mainComputerVisual = renderedRoom.mainComputer;
+    this.intelligenceStationVisual = renderedRoom.intelligenceStation;
     this.playerShadow = this.add.ellipse(spawnPoint.x, spawnPoint.y + 18, 44, 18, 0x31190c, 0.16).setDepth(6);
     this.player = this.add.image(spawnPoint.x, spawnPoint.y, ASSET_KEYS.player).setDepth(7);
+    this.carriedItem = this.add.image(spawnPoint.x, spawnPoint.y - 30, ASSET_KEYS.memoryModuleEmpty).setDepth(8).setVisible(false);
     this.interactionPrompt = this.add
       .text(room.x + room.width / 2, room.y + room.height - 28, '', {
         backgroundColor: '#17324a',
@@ -134,10 +137,19 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0.5)
       .setVisible(false);
     this.objectiveBanner = this.add
-      .text(room.x + room.width / 2, room.y + 72, '', {
+      .text(room.x + room.width / 2, room.y + 68, '', {
         color: '#17324a',
         fontFamily: 'Trebuchet MS, Verdana, sans-serif',
         fontSize: '16px',
+        fontStyle: 'bold',
+      })
+      .setDepth(4)
+      .setOrigin(0.5);
+    this.statusBanner = this.add
+      .text(room.x + room.width / 2, room.y + 92, '', {
+        color: '#6c553f',
+        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+        fontSize: '13px',
         fontStyle: 'bold',
       })
       .setDepth(4)
@@ -168,12 +180,24 @@ export class GameScene extends Phaser.Scene {
     }
 
     const previousPosition = { x: this.player.x, y: this.player.y };
-    const oilingAdvance = advanceOilingState(this.oilingFlowState, delta, DEFAULT_OILING_FLOW_CONFIG);
+    const intelligenceAdvance = advanceIntelligenceState(
+      this.intelligenceFlowState,
+      delta,
+      DEFAULT_INTELLIGENCE_FLOW_CONFIG,
+    );
 
-    this.oilingFlowState = oilingAdvance.nextState;
+    this.intelligenceFlowState = intelligenceAdvance.nextState;
 
-    if (oilingAdvance.gearTriggered || oilingAdvance.gearStartedGrinding) {
-      this.cameras.main.shake(140, 0.002);
+    if (intelligenceAdvance.processingCompleted) {
+      this.cameras.main.shake(130, 0.0018);
+      this.tweens.add({
+        duration: 220,
+        ease: 'Sine.Out',
+        scaleX: 1.08,
+        scaleY: 1.08,
+        targets: this.intelligenceStationVisual?.sprite,
+        yoyo: true,
+      });
     }
 
     const step = advancePosition(
@@ -184,7 +208,7 @@ export class GameScene extends Phaser.Scene {
       this.playBounds,
       this.dashState,
     );
-    const nearbyTarget = findNearbyStation(step.nextPosition, this.interactionStations, this.oilingFlowState);
+    const nearbyTarget = findNearbyStation(step.nextPosition, this.interactionStations);
 
     this.dashState = step.dashState;
     this.player.setPosition(step.nextPosition.x, step.nextPosition.y);
@@ -206,28 +230,47 @@ export class GameScene extends Phaser.Scene {
       batteryTask: null,
       bounds: this.debugState.bounds ? { ...this.debugState.bounds } : null,
       cracksTask: null,
-      oilingTask: this.debugState.oilingTask ? { ...this.debugState.oilingTask } : null,
+      intelligenceTask: this.debugState.intelligenceTask ? { ...this.debugState.intelligenceTask } : null,
+      oilingTask: null,
       player: this.debugState.player ? { ...this.debugState.player } : null,
       ready: this.debugState.ready,
     };
   }
 
-  private applyInteraction(target: OilingInteractionTarget | null): void {
-    const servicedGearId = this.oilingFlowState.activeGearId;
-    const interaction = resolveOilingInteraction(this.oilingFlowState, target, DEFAULT_OILING_FLOW_CONFIG);
+  private applyInteraction(target: IntelligenceInteractionTarget | null): void {
+    const interaction = resolveIntelligenceInteraction(
+      this.intelligenceFlowState,
+      this.heldItem,
+      target,
+      DEFAULT_INTELLIGENCE_FLOW_CONFIG,
+    );
 
     if (!interaction.changed) {
       return;
     }
 
-    this.oilingFlowState = interaction.nextState;
+    this.intelligenceFlowState = interaction.nextState;
+    this.heldItem = interaction.nextHeldItem;
 
-    if (interaction.action === 'oil' && servicedGearId && this.gearVisuals) {
+    if (interaction.action === 'remove' || interaction.action === 'install') {
       this.tweens.add({
-        angle: 180,
-        duration: 260,
+        duration: 180,
         ease: 'Sine.Out',
-        targets: this.gearVisuals[servicedGearId].sprite,
+        scaleX: 1.06,
+        scaleY: 1.06,
+        targets: this.mainComputerVisual?.sprite,
+        yoyo: true,
+      });
+    }
+
+    if (interaction.action === 'load' || interaction.action === 'take-ready') {
+      this.tweens.add({
+        duration: 180,
+        ease: 'Sine.Out',
+        scaleX: 1.06,
+        scaleY: 1.06,
+        targets: this.intelligenceStationVisual?.sprite,
+        yoyo: true,
       });
     }
   }
@@ -280,68 +323,83 @@ export class GameScene extends Phaser.Scene {
     };
   }
 
-  private refreshGearVisuals(objectiveTarget: OilingInteractionTarget | null): void {
-    if (!this.gearVisuals) {
-      return;
+  private refreshPresentation(objectiveTarget: IntelligenceInteractionTarget | null): void {
+    if (this.mainComputerVisual) {
+      this.mainComputerVisual.sprite.setTexture(getMainComputerTexture(this.intelligenceFlowState.machine));
+      this.mainComputerVisual.sprite.setScale(objectiveTarget === IntelligenceStationId.MainComputer ? 1.05 : 1);
+      this.mainComputerVisual.sprite.setAlpha(this.intelligenceFlowState.machine === IntelligenceMachineStateId.Empty ? 0.9 : 1);
     }
 
-    for (const [gearId, gearVisual] of Object.entries(this.gearVisuals) as [Gear, GearVisual][]) {
-      const status = this.oilingFlowState.gears[gearId].status;
+    if (this.intelligenceStationVisual) {
+      this.intelligenceStationVisual.sprite.setTexture(getIntelligenceStationTexture(this.intelligenceFlowState.station));
+      this.intelligenceStationVisual.sprite.setScale(objectiveTarget === IntelligenceStationId.IntelligenceStation ? 1.05 : 1);
 
-      gearVisual.sprite.setTexture(getGearTexture(status));
-      gearVisual.sprite.setScale(objectiveTarget === getGearTarget(gearId) ? 1.06 : 1);
-      gearVisual.sprite.setAlpha(status === GearStatusId.Healthy ? 0.86 : 1);
+      if (this.intelligenceFlowState.station === IntelligenceStationStateId.Processing) {
+        const pulse = 1 + Math.sin(this.time.now / 180) * 0.025;
 
-      if (status === GearStatusId.NeedsOil) {
-        gearVisual.sprite.setAngle(Math.sin(this.time.now / 170) * 3);
-      } else if (status === GearStatusId.Grinding) {
-        gearVisual.sprite.setAngle(Math.sin(this.time.now / 90) * 7);
+        this.intelligenceStationVisual.sprite.setScale(
+          (objectiveTarget === IntelligenceStationId.IntelligenceStation ? 1.05 : 1) * pulse,
+        );
+        this.intelligenceStationVisual.sprite.setAngle(Math.sin(this.time.now / 220) * 1.8);
+      } else if (this.intelligenceFlowState.station === IntelligenceStationStateId.Ready) {
+        this.intelligenceStationVisual.sprite.setAngle(Math.sin(this.time.now / 120) * 3.2);
       } else {
-        gearVisual.sprite.setAngle(0);
+        this.intelligenceStationVisual.sprite.setAngle(0);
       }
     }
   }
 
-  private refreshScenePresentation(nearbyTarget: OilingInteractionTarget | null = null): void {
+  private refreshScenePresentation(nearbyTarget: IntelligenceInteractionTarget | null = null): void {
     const objective = {
-      label: getOilingObjectiveLabel(resolveOilingObjective(this.oilingFlowState)),
-      target: resolveOilingObjectiveTarget(this.oilingFlowState),
+      label: getIntelligenceObjectiveLabel(resolveIntelligenceObjective(this.intelligenceFlowState, this.heldItem)),
+      target: resolveIntelligenceObjectiveTarget(this.intelligenceFlowState, this.heldItem),
     };
-    const prompt = getOilingInteractionPrompt(this.oilingFlowState, nearbyTarget);
+    const prompt = getIntelligenceInteractionPrompt(this.intelligenceFlowState, this.heldItem, nearbyTarget);
 
     this.interactionPrompt?.setVisible(Boolean(prompt));
     this.interactionPrompt?.setText(prompt ?? '');
-    this.objectiveBanner?.setText(`${objective.label}  •  Oil ${this.oilingFlowState.oilCharges}/${this.oilingFlowState.maxOilCharges}`);
+    this.objectiveBanner?.setText(objective.label);
+    this.statusBanner?.setText(getIntelligenceStatusLabel(this.intelligenceFlowState));
 
-    this.refreshGearVisuals(objective.target);
+    if (this.carriedItem && this.player) {
+      this.carriedItem.setVisible(this.heldItem !== null);
+
+      if (this.heldItem !== null) {
+        this.carriedItem.setTexture(getHeldItemTexture(this.heldItem));
+        this.carriedItem.setPosition(this.player.x, this.player.y - 32);
+      }
+    }
+
+    this.refreshPresentation(objective.target);
 
     if (this.interactionStations) {
-      for (const [targetId, station] of Object.entries(this.interactionStations) as [OilingInteractionTarget, InteractionStation][]) {
+      for (const [targetId, station] of Object.entries(this.interactionStations) as [
+        IntelligenceInteractionTarget,
+        InteractionStation,
+      ][]) {
         const isObjective = targetId === objective.target;
+
         station.actionIcon.setAlpha(isObjective ? 1 : 0.84);
-        station.actionIcon.setScale(isObjective ? 1.05 : 1);
       }
     }
   }
 
-  private syncDebugState(step: MovementStep, nearbyTarget: OilingInteractionTarget | null = null): void {
-    const activeGearStatus = getActiveGearStatus(this.oilingFlowState);
-
+  private syncDebugState(step: MovementStep, nearbyTarget: IntelligenceInteractionTarget | null = null): void {
     this.debugState = {
       batteryTask: null,
       bounds: this.playBounds ? { ...this.playBounds } : null,
       cracksTask: null,
-      oilingTask: {
-        activeGearId: this.oilingFlowState.activeGearId,
-        completedServices: this.oilingFlowState.completedServices,
-        maxOilCharges: this.oilingFlowState.maxOilCharges,
-        objective: resolveOilingObjective(this.oilingFlowState),
-        oilCharges: this.oilingFlowState.oilCharges,
-        status: activeGearStatus,
-        timeUntilGrindingMs:
-          this.oilingFlowState.timeUntilGrindingMs === null ? null : Math.ceil(this.oilingFlowState.timeUntilGrindingMs),
-        triggered: this.oilingFlowState.activeGearId !== null,
+      intelligenceTask: {
+        completed: this.intelligenceFlowState.completed,
+        machineState: this.intelligenceFlowState.machine,
+        objective: resolveIntelligenceObjective(this.intelligenceFlowState, this.heldItem),
+        processingRemainingMs:
+          this.intelligenceFlowState.processingRemainingMs === null
+            ? null
+            : Math.ceil(this.intelligenceFlowState.processingRemainingMs),
+        stationState: this.intelligenceFlowState.station,
       },
+      oilingTask: null,
       player: this.player
         ? {
             canDash: canDashWithHeldItem(this.heldItem),
@@ -359,35 +417,28 @@ export class GameScene extends Phaser.Scene {
   }
 }
 
-function createGearVisual(scene: Phaser.Scene, x: number, y: number): GearVisual {
-  return {
-    sprite: scene.add.image(x, y, ASSET_KEYS.gearHealthy).setDepth(3),
-  };
-}
-
 function createStation(
   scene: Phaser.Scene,
   x: number,
   y: number,
   texture: string,
-  label?: string,
+  label: string,
 ): InteractionStation {
   const icon = scene.add.image(x, y, texture).setDepth(3);
 
-  if (label) {
-    scene.add
-      .text(x, y + 78, label, {
-        color: '#17324a',
-        fontFamily: 'Trebuchet MS, Verdana, sans-serif',
-        fontSize: '14px',
-        fontStyle: 'bold',
-      })
-      .setDepth(3)
-      .setOrigin(0.5);
-  }
+  scene.add
+    .text(x, y + 84, label, {
+      color: '#17324a',
+      fontFamily: 'Trebuchet MS, Verdana, sans-serif',
+      fontSize: '14px',
+      fontStyle: 'bold',
+    })
+    .setDepth(3)
+    .setOrigin(0.5);
 
   return {
     actionIcon: icon,
+    sprite: icon,
     targetPoint: { x, y },
   };
 }
@@ -395,16 +446,11 @@ function createStation(
 function findNearbyStation(
   position: Point2,
   stations: InteractionStationMap,
-  oilingFlowState: OilingFlowState,
-): OilingInteractionTarget | null {
-  let nearestStation: OilingInteractionTarget | null = null;
+): IntelligenceInteractionTarget | null {
+  let nearestStation: IntelligenceInteractionTarget | null = null;
   let nearestDistance = Number.POSITIVE_INFINITY;
 
-  for (const [targetId, station] of Object.entries(stations) as [OilingInteractionTarget, InteractionStation][]) {
-    if (!isTargetEnabled(targetId, oilingFlowState)) {
-      continue;
-    }
-
+  for (const [targetId, station] of Object.entries(stations) as [IntelligenceInteractionTarget, InteractionStation][]) {
     const distance = Phaser.Math.Distance.Between(position.x, position.y, station.targetPoint.x, station.targetPoint.y);
 
     if (distance > INTERACT_DISTANCE || distance >= nearestDistance) {
@@ -418,52 +464,77 @@ function findNearbyStation(
   return nearestStation;
 }
 
-function getActiveGearStatus(state: OilingFlowState): GearStatus | null {
-  return state.activeGearId ? state.gears[state.activeGearId].status : null;
-}
-
-function getGearTarget(gearId: Gear | null): OilingInteractionTarget | null {
-  switch (gearId) {
-    case GearId.LeftGear:
-      return OilingStationId.GearLeft;
-    case GearId.RightGear:
-      return OilingStationId.GearRight;
-    case null:
-      return null;
+function getHeldItemTexture(heldItem: HeldItem): string {
+  switch (heldItem) {
+    case HeldItemId.MemoryModuleEmpty:
+      return ASSET_KEYS.memoryModuleEmpty;
+    case HeldItemId.MemoryModuleReady:
+      return ASSET_KEYS.memoryModuleReady;
+    default:
+      return ASSET_KEYS.memoryModuleEmpty;
   }
 }
 
-function getGearTexture(status: GearStatus): string {
-  switch (status) {
-    case GearStatusId.Healthy:
-      return ASSET_KEYS.gearHealthy;
-    case GearStatusId.NeedsOil:
-      return ASSET_KEYS.gearNeedsOil;
-    case GearStatusId.Grinding:
-      return ASSET_KEYS.gearGrinding;
-  }
-}
-
-function getOilingObjectiveLabel(objective: OilingObjective): string {
+function getIntelligenceObjectiveLabel(objective: IntelligenceObjective): string {
   switch (objective) {
-    case 'wait':
-      return 'Wait for the next dry gear';
-    case 'refill-oil':
-      return 'Refill at the oil pump';
-    case 'oil-gear':
-      return 'Oil the active gear';
+    case 'remove-module':
+      return 'Remove the depleted memory module';
+    case 'load-station':
+      return 'Load the intelligence station';
+    case 'wait-for-processing':
+      return 'Wait for the station to finish processing';
+    case 'take-ready-module':
+      return 'Take the restored module';
+    case 'install-module':
+      return 'Return the module to the main computer';
+    case 'complete':
+      return 'Main computer restored';
   }
 }
 
-function isTargetEnabled(target: OilingInteractionTarget, oilingFlowState: OilingFlowState): boolean {
-  if (target === OilingStationId.OilPump) {
-    return true;
+function getIntelligenceStatusLabel(state: IntelligenceFlowState): string {
+  if (state.completed) {
+    return 'System intelligence restored';
   }
 
-  return oilingFlowState.activeGearId !== null && shouldTrackGearTarget(target, oilingFlowState);
+  if (state.station === IntelligenceStationStateId.Processing) {
+    return `Processing module  •  ${formatSeconds(state.processingRemainingMs)}s`;
+  }
+
+  if (state.station === IntelligenceStationStateId.Ready) {
+    return 'Processing complete  •  pick up the ready module';
+  }
+
+  if (state.machine === IntelligenceMachineStateId.Empty) {
+    return 'Main computer bay is open';
+  }
+
+  return 'Carry the memory module between both stations';
 }
 
-function renderOilingSandbox(
+function getIntelligenceStationTexture(state: IntelligenceStationState): string {
+  switch (state) {
+    case IntelligenceStationStateId.Idle:
+      return ASSET_KEYS.intelligenceStationIdle;
+    case IntelligenceStationStateId.Processing:
+      return ASSET_KEYS.intelligenceStationProcessing;
+    case IntelligenceStationStateId.Ready:
+      return ASSET_KEYS.intelligenceStationReady;
+  }
+}
+
+function getMainComputerTexture(state: IntelligenceMachineState): string {
+  switch (state) {
+    case IntelligenceMachineStateId.DepletedInstalled:
+      return ASSET_KEYS.mainComputerDepleted;
+    case IntelligenceMachineStateId.Empty:
+      return ASSET_KEYS.mainComputerOpen;
+    case IntelligenceMachineStateId.Restored:
+      return ASSET_KEYS.mainComputerRestored;
+  }
+}
+
+function renderIntelligenceSandbox(
   scene: Phaser.Scene,
   room: Phaser.Geom.Rectangle,
   walkArea: Phaser.Geom.Rectangle,
@@ -471,20 +542,18 @@ function renderOilingSandbox(
   const backdrop = scene.add.graphics();
   const centerX = room.x + room.width / 2;
   const centerY = room.y + room.height / 2;
-  const pumpX = room.x + room.width - 190;
-  const pumpY = room.y + room.height - 136;
-  const leftGearX = centerX - 116;
-  const leftGearY = centerY + 42;
-  const rightGearX = centerX + 116;
-  const rightGearY = centerY + 42;
+  const mainComputerX = room.x + 204;
+  const mainComputerY = room.y + room.height - 150;
+  const intelligenceStationX = room.x + room.width - 204;
+  const intelligenceStationY = room.y + room.height - 150;
 
-  backdrop.fillStyle(0xcaab83, 0.24);
+  backdrop.fillStyle(0xc7b091, 0.24);
   backdrop.fillRoundedRect(room.x + 10, room.y + 14, room.width, room.height, 34);
   backdrop.fillStyle(0xfffbf6, 0.98);
   backdrop.fillRoundedRect(room.x, room.y, room.width, room.height, 34);
   backdrop.lineStyle(3, 0x27455d, 0.18);
   backdrop.strokeRoundedRect(room.x, room.y, room.width, room.height, 34);
-  backdrop.fillStyle(0xf0dfc9, 1);
+  backdrop.fillStyle(0xefe1cb, 1);
   backdrop.fillRoundedRect(room.x + 18, room.y + 18, room.width - 36, room.height - 36, 26);
   backdrop.fillStyle(0xf8f0e4, 1);
   backdrop.fillRoundedRect(walkArea.x - 24, walkArea.y - 22, walkArea.width + 48, walkArea.height + 44, 24);
@@ -501,15 +570,16 @@ function renderOilingSandbox(
   }
 
   backdrop.lineStyle(6, 0x17324a, 0.06);
-  backdrop.lineBetween(room.x + 124, room.y + room.height - 154, leftGearX, leftGearY + 52);
-  backdrop.lineBetween(pumpX - 36, pumpY - 72, rightGearX, rightGearY + 52);
-  backdrop.lineBetween(centerX, room.y + 124, centerX, room.y + room.height - 170);
+  backdrop.lineBetween(mainComputerX + 52, mainComputerY - 28, centerX, centerY - 10);
+  backdrop.lineBetween(centerX, centerY - 10, intelligenceStationX - 52, intelligenceStationY - 28);
+  backdrop.lineBetween(centerX, room.y + 128, centerX, room.y + room.height - 170);
+  backdrop.fillStyle(0xffffff, 0.18);
+  backdrop.fillCircle(centerX, centerY - 10, 34);
+  backdrop.fillCircle(centerX, centerY - 10, 14);
 
   scene.add.image(centerX, centerY, ASSET_KEYS.emblem).setDepth(1).setAlpha(0.06).setScale(1.14);
-  scene.add.rectangle(centerX, centerY, 156, 156, 0xffffff, 0.22).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
-  scene.add.rectangle(centerX, centerY, 88, 88, 0xffffff, 0.28).setDepth(1).setStrokeStyle(2, 0x27455d, 0.1);
-  scene.add.circle(room.x + 132, room.y + room.height - 154, 34, 0xffffff, 0.16).setDepth(1).setStrokeStyle(3, 0x27455d, 0.08);
-  scene.add.circle(room.x + 132, room.y + room.height - 154, 16, 0xffffff, 0.2).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
+  scene.add.rectangle(centerX, centerY, 160, 160, 0xffffff, 0.22).setDepth(1).setStrokeStyle(2, 0x27455d, 0.08);
+  scene.add.rectangle(centerX, centerY, 92, 92, 0xffffff, 0.28).setDepth(1).setStrokeStyle(2, 0x27455d, 0.1);
   scene.add
     .text(room.x + room.width / 2, room.y + 36, 'WASD or arrow keys  •  Shift to dash  •  E interact', {
       backgroundColor: '#fff5e7',
@@ -522,39 +592,33 @@ function renderOilingSandbox(
     .setDepth(4)
     .setOrigin(0.5);
 
-  const leftGear = createGearVisual(scene, leftGearX, leftGearY);
-  const rightGear = createGearVisual(scene, rightGearX, rightGearY);
-  const oilPump = createStation(scene, pumpX, pumpY, ASSET_KEYS.oilPump, 'Oil pump');
+  const mainComputer = createStation(scene, mainComputerX, mainComputerY, ASSET_KEYS.mainComputerDepleted, 'Main computer');
+  const intelligenceStation = createStation(
+    scene,
+    intelligenceStationX,
+    intelligenceStationY,
+    ASSET_KEYS.intelligenceStationIdle,
+    'Intelligence station',
+  );
 
   return {
-    gearVisuals: {
-      [GearId.LeftGear]: leftGear,
-      [GearId.RightGear]: rightGear,
-    },
+    intelligenceStation,
+    mainComputer,
     stations: {
-      [OilingStationId.GearLeft]: {
-        actionIcon: leftGear.sprite,
-        targetPoint: { x: leftGearX, y: leftGearY },
-      },
-      [OilingStationId.GearRight]: {
-        actionIcon: rightGear.sprite,
-        targetPoint: { x: rightGearX, y: rightGearY },
-      },
-      [OilingStationId.OilPump]: oilPump,
+      [IntelligenceStationId.IntelligenceStation]: intelligenceStation,
+      [IntelligenceStationId.MainComputer]: mainComputer,
     },
   };
 }
 
-function roundTo(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-function shouldTrackGearTarget(target: OilingInteractionTarget, oilingFlowState: OilingFlowState): boolean {
-  const gearId = target === OilingStationId.GearLeft ? GearId.LeftGear : target === OilingStationId.GearRight ? GearId.RightGear : null;
-
-  if (gearId === null) {
-    return false;
+function formatSeconds(durationMs: number | null): string {
+  if (durationMs === null) {
+    return '0.0';
   }
 
-  return oilingFlowState.activeGearId === gearId;
+  return (Math.ceil(durationMs / 100) / 10).toFixed(1);
+}
+
+function roundTo(value: number): number {
+  return Math.round(value * 100) / 100;
 }

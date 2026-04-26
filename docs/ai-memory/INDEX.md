@@ -25,10 +25,11 @@ It should describe the current truth of the repo. Historical context lives in Gi
 - `features/battery-replacement-slice.md` - first implemented maintenance loop with pure battery state flow, carry limits, room stations, and debug-visible interaction state
 - `features/cracks-sandbox-slice.md` - reusable cracks prototype logic with timed crack failures, repair-plate carry flow, traversal blockers, and reserved debug state
 - `features/dash-added.md` - Shift-triggered movement dash with locked dash direction, short cooldown, and debug-visible dash state
-- `features/game-direction.md` - agreed pre-content machine-maintenance direction, planned failure types, shift framing, and current non-implemented status
+- `features/game-direction.md` - machine-maintenance direction, shift framing, and the current set of validated maintenance prototype types
+- `features/intelligence-processing-sandbox.md` - isolated intelligence prototype room with timed module processing, shared carry rules, and debug-visible station state
 - `features/local-agent-toolchain.md` - local-only agent workflow boundary: fixed dev URL, external `playwright-cli`, and validation/art entry points
 - `features/local-agent-validation.md` - dev-only browser validation flow with Playwright-friendly hooks and `window.__gameDebug`
-- `features/main-menu.md` - minimal title screen flow, preload routing into the menu, and return-to-menu controls from the playable game scene
+- `features/main-menu.md` - minimal title screen flow and preload routing into the current playable sandbox scene
 - `features/oiling-charge-sandbox.md` - isolated oiling prototype room with alternating dry gears, refillable oil charges, and debug-visible gear-service state
 - `features/piskel-asset-workflow.md` - ad-free Piskel browser workflow, source/export locations, and shared starter palette for agent-made pixel art
 - `features/project-setup.md` - neutral Phaser/Vite/TypeScript scaffold, scene startup flow, and build constraints
