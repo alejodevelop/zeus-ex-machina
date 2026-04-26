@@ -69,6 +69,11 @@ export interface GameDebugGameplayState {
   } | null;
   cracksTask: GameDebugCracksTaskState | null;
   intelligenceTask: GameDebugIntelligenceTaskState | null;
+  obstacleSandbox: {
+    activeBlockerCount: number;
+    obstacleCount: number;
+    routeHint: 'center-lane' | 'north-lane' | 'south-lane';
+  } | null;
   oilingTask: GameDebugOilingTaskState | null;
   player: GameDebugGameplayPlayerState | null;
   ready: boolean;
@@ -261,6 +266,8 @@ function createAgentHud(controller: GameDebugController): AgentHud {
       fpsValue.textContent = `${Math.round(snapshot.fps)} fps`;
       pointerValue.textContent = snapshot.gameplay?.intelligenceTask
         ? `${snapshot.gameplay.intelligenceTask.objective} | ${snapshot.gameplay.intelligenceTask.stationState === 'processing' && snapshot.gameplay.intelligenceTask.processingRemainingMs !== null ? `${Math.ceil(snapshot.gameplay.intelligenceTask.processingRemainingMs / 1000)}s` : snapshot.gameplay.intelligenceTask.stationState}`
+        : snapshot.gameplay?.obstacleSandbox
+            ? `${snapshot.gameplay.obstacleSandbox.routeHint} | ${snapshot.gameplay.obstacleSandbox.activeBlockerCount} walls`
         : snapshot.gameplay?.oilingTask
             ? `${snapshot.gameplay.oilingTask.objective} | oil ${snapshot.gameplay.oilingTask.oilCharges}/${snapshot.gameplay.oilingTask.maxOilCharges}`
         : snapshot.gameplay?.batteryTask

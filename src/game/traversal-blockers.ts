@@ -39,6 +39,10 @@ export function constrainPointToBlockers(
   return previous;
 }
 
+export function isPointBlockedByBlockers(point: Point2, radius: number, blockers: TraversalBlocker[]): boolean {
+  return blockers.some((blocker) => isPointInsideBounds(point, createExpandedBounds(blocker, radius)));
+}
+
 function createExpandedBounds(blocker: TraversalBlocker, radius: number): RectBounds {
   return {
     maxX: blocker.x + blocker.width + radius,

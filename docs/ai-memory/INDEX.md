@@ -33,3 +33,4 @@ It should describe the current truth of the repo. Historical context lives in Gi
 - `features/oiling-charge-sandbox.md` - isolated oiling prototype room with alternating dry gears, refillable oil charges, and debug-visible gear-service state
 - `features/piskel-asset-workflow.md` - ad-free Piskel browser workflow, source/export locations, and shared starter palette for agent-made pixel art
 - `features/project-setup.md` - neutral Phaser/Vite/TypeScript scaffold, scene startup flow, and build constraints
+- `features/straight-wall-route-sandbox.md` - straight-wall collision lab with reusable wall prefabs, blocker-based sliding, and debug-visible route hints

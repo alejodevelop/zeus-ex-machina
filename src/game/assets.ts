@@ -9,6 +9,8 @@ export const ASSET_KEYS = {
   crackBlocked: 'crack-blocked',
   crackPatched: 'crack-patched',
   crackWarning: 'crack-warning',
+  obstacleStraightWallHorizontal: 'obstacle-straight-wall-horizontal',
+  obstacleStraightWallVertical: 'obstacle-straight-wall-vertical',
   discardBin: 'discard-bin',
   emblem: 'scaffold-emblem',
   gearGrinding: 'gear-grinding',

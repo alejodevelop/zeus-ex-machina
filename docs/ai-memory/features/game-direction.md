@@ -24,8 +24,8 @@
 
 ## Current State
 - `Battery replacement` remains the first implemented maintenance slice.
-- `Intelligence` is now the active focused sandbox in `GameScene`.
-- The repo currently contains the movement, dash, battery, cracks, oiling, and intelligence prototype foundation for the maintenance direction.
+- `Straight wall route sandbox` is now the active focused sandbox in `GameScene` for collision and traversal validation.
+- The repo currently contains the movement, dash, wall-route collision sandbox, and battery/cracks/oiling/intelligence prototype foundation for the maintenance direction.
 
 ## Follow-ups
 - Continue validating each future alert type in a one-mechanic room before combining them into final shift layouts.

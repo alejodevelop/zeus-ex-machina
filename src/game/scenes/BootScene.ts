@@ -137,6 +137,14 @@ export class BootScene extends Phaser.Scene {
     graphics.generateTexture(ASSET_KEYS.memoryModuleReady, 84, 54);
 
     graphics.clear();
+    drawStraightWall(graphics, false);
+    graphics.generateTexture(ASSET_KEYS.obstacleStraightWallHorizontal, 260, 44);
+
+    graphics.clear();
+    drawStraightWall(graphics, true);
+    graphics.generateTexture(ASSET_KEYS.obstacleStraightWallVertical, 44, 260);
+
+    graphics.clear();
     drawGear(graphics, 0x8294a0, 0x495864, 0xc6d1d7, 0x6e7f8a);
     graphics.generateTexture(ASSET_KEYS.gearHealthy, 132, 132);
 
@@ -418,4 +426,33 @@ function drawMemoryModule(
 
   graphics.fillStyle(0xffffff, 0.32);
   graphics.fillRoundedRect(18, 16, 24, 8, 4);
+}
+
+function drawStraightWall(graphics: Phaser.GameObjects.Graphics, vertical: boolean): void {
+  const width = vertical ? 28 : 244;
+  const height = vertical ? 244 : 28;
+  const x = vertical ? 8 : 8;
+  const y = vertical ? 8 : 8;
+
+  graphics.fillStyle(0x536473, 1);
+  graphics.fillRoundedRect(x, y, width, height, 10);
+  graphics.lineStyle(3, 0x2c3741, 1);
+  graphics.strokeRoundedRect(x, y, width, height, 10);
+  graphics.fillStyle(0x738796, 1);
+
+  if (vertical) {
+    for (let offset = 22; offset < 220; offset += 40) {
+      graphics.fillRoundedRect(12, offset, 20, 12, 4);
+    }
+    graphics.lineStyle(2, 0xffffff, 0.18);
+    graphics.lineBetween(14, 18, 14, 226);
+    graphics.lineBetween(24, 18, 24, 226);
+  } else {
+    for (let offset = 22; offset < 220; offset += 40) {
+      graphics.fillRoundedRect(offset, 12, 12, 20, 4);
+    }
+    graphics.lineStyle(2, 0xffffff, 0.18);
+    graphics.lineBetween(18, 14, 226, 14);
+    graphics.lineBetween(18, 24, 226, 24);
+  }
 }

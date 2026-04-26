@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { constrainPointToBlockers } from './traversal-blockers';
+import { constrainPointToBlockers, isPointBlockedByBlockers } from './traversal-blockers';
 
 describe('traversal blockers', () => {
   const blocker = {
@@ -24,5 +24,10 @@ describe('traversal blockers', () => {
 
   it('lets the player move out if they are already inside a blocker', () => {
     expect(constrainPointToBlockers({ x: 90, y: 60 }, { x: 30, y: 60 }, 10, [blocker])).toEqual({ x: 30, y: 60 });
+  });
+
+  it('detects when a point is already inside a blocker expansion', () => {
+    expect(isPointBlockedByBlockers({ x: 90, y: 60 }, 10, [blocker])).toBe(true);
+    expect(isPointBlockedByBlockers({ x: 20, y: 20 }, 10, [blocker])).toBe(false);
   });
 });
