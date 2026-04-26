@@ -26,7 +26,7 @@ export class MenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     const prompt = this.add
-      .text(width / 2, height * 0.62, 'Oprime cualquier boton para continuar', {
+      .text(width / 2, height * 0.62, 'Press any button to continue', {
         color: '#8b5b34',
         fontFamily: 'Trebuchet MS, Verdana, sans-serif',
         fontSize: '20px',

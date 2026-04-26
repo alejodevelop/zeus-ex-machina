@@ -28,7 +28,8 @@ Cross-feature decisions and constraints that future work should preserve.
 
 ## Frame sizing
 
-- The game frame stays at `960x540` in `src/game/config.ts` and the shell keeps a matching `16 / 9` aspect ratio in `src/styles.css`.
+- The game frame stays at `1280x720` in `src/game/config.ts` and the shell keeps a matching `16 / 9` aspect ratio in `src/styles.css`.
+- `src/game/config.ts` targets fullscreen at `#app-shell`, so `index.html`, `src/main.ts`, and `src/styles.css` must keep that shell id and the fullscreen button wiring aligned.
 - If the project changes aspect ratio later, update both files together.
 
 ## Testing boundary

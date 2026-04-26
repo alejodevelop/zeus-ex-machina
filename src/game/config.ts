@@ -5,8 +5,8 @@ import { GameScene } from './scenes/GameScene';
 import { MenuScene } from './scenes/MenuScene';
 import { PreloadScene } from './scenes/PreloadScene';
 
-export const GAME_HEIGHT = 540;
-export const GAME_WIDTH = 960;
+export const GAME_HEIGHT = 720;
+export const GAME_WIDTH = 1280;
 
 export const gameConfig: Phaser.Types.Core.GameConfig = {
   backgroundColor: '#efe6d8',
@@ -17,6 +17,7 @@ export const gameConfig: Phaser.Types.Core.GameConfig = {
   },
   scale: {
     autoCenter: Phaser.Scale.CENTER_BOTH,
+    fullscreenTarget: 'app-shell',
     height: GAME_HEIGHT,
     mode: Phaser.Scale.FIT,
     width: GAME_WIDTH,

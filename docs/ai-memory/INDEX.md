@@ -29,6 +29,7 @@ It should describe the current truth of the repo. Historical context lives in Gi
 - `features/intelligence-processing-sandbox.md` - isolated intelligence prototype room with timed module processing, shared carry rules, and debug-visible station state
 - `features/local-agent-toolchain.md` - local-only agent workflow boundary: fixed dev URL, external `playwright-cli`, and validation/art entry points
 - `features/local-agent-validation.md` - dev-only browser validation flow with Playwright-friendly hooks and `window.__gameDebug`
+- `features/large-shell-fullscreen-ux.md` - widescreen shell layout with decorative framing and a Phaser-backed fullscreen toggle on `#app-shell`
 - `features/main-menu.md` - minimal title screen flow and preload routing into the current playable sandbox scene
 - `features/oiling-charge-sandbox.md` - isolated oiling prototype room with alternating dry gears, refillable oil charges, and debug-visible gear-service state
 - `features/piskel-asset-workflow.md` - ad-free Piskel browser workflow, source/export locations, and shared starter palette for agent-made pixel art

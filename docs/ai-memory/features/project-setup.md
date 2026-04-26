@@ -4,25 +4,27 @@
 - The project is a browser game scaffold built with `Phaser`, `Vite`, strict `TypeScript`, `ESLint`, `Vitest`, and `pnpm`.
 - `src/main.ts` is the only browser entry point and creates one `Phaser.Game` from `src/game/config.ts`.
 - Startup flow is scene-based: `BootScene` creates runtime textures, `PreloadScene` routes into the configured start scene, `MenuScene` is the landing screen, and `GameScene` is the main playable sandbox scene.
+- The browser shell wraps the canvas in a framed `16 / 9` layout and now includes a Phaser-backed fullscreen toggle on `#app-shell`.
 
 ## Files
 - `package.json` - scripts, dependency versions, and pinned `pnpm@10.33.0` package manager.
-- `index.html` - mounts the game in `#game` and loads `src/main.ts`.
-- `src/main.ts` - creates and hot-disposes the single Phaser game instance.
-- `src/game/config.ts` - shared game size, scaling, render settings, and scene registration.
+- `index.html` - mounts the `#app-shell`, fullscreen button, framed `#game` container, and loads `src/main.ts`.
+- `src/main.ts` - creates the Phaser game, hot-disposes it, and keeps the fullscreen button synced with Phaser scale events.
+- `src/game/config.ts` - shared game size, scaling, fullscreen target, render settings, and scene registration.
 - `src/game/assets.ts` - scaffold texture ids generated at runtime.
 - `src/game/scenes/BootScene.ts` - generates runtime placeholder textures before preload.
 - `src/game/scenes/PreloadScene.ts` - lightweight routing scene that still leaves room for future static asset loading.
 - `src/game/scenes/scene-keys.ts` - canonical scene ids.
 - `src/game/scenes/MenuScene.ts` - minimal title screen that starts the playable sandbox flow on pointer or keyboard input.
 - `src/game/scenes/GameScene.ts` - active playable sandbox scene for movement and current maintenance prototype wiring.
-- `src/styles.css` - shell styling around the fixed-aspect Phaser canvas.
+- `src/styles.css` - shell, framed canvas, fullscreen-state, and agent HUD styling around the fixed-aspect Phaser canvas.
 
 ## Decisions
 - Keep scene ids and scaffold asset keys centralized in `src/game/scenes/scene-keys.ts` and `src/game/assets.ts`.
 - Keep pure logic in plain modules under `src/game/` or `src/game/utils/` so it stays testable in Vitest's `node` environment.
 - Keep reusable gameplay rules in plain modules under `src/game/` so scene code can stay focused on Phaser wiring.
 - Keep `vite.config.ts` on `base: './'` so the built `dist/` bundle works from relative hosting targets like `itch.io` uploads.
+- Keep the shell `16 / 9` ratio in `src/styles.css` aligned with `GAME_WIDTH` and `GAME_HEIGHT` in `src/game/config.ts`, and keep Phaser fullscreen pointed at `#app-shell`.
 
 ## Errors and fixes
 - Symptom: built assets fail after direct HTML5 bundle upload.
